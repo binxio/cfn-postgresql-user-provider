@@ -1,0 +1,48 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "DBPassword": {
+      "Type": "Custom::SecretProvider",
+      "Properties": {
+        "Name": "/postgres/root/PGPASSWORD",
+        "Alphabet": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_@#!",
+        "Length": 30,
+        "ServiceToken": {
+          "Fn::Join": [
+            ":",
+            [
+              "arn:aws:lambda",
+              {
+                "Ref": "AWS::Region"
+              },
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "function:CFNCustomSecretProvider"
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "Secret": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DBPassword",
+          "Secret"
+        ]
+      },
+      "Description": "the generated secret, do expose this as Output Parameter in production"
+    },
+    "Arn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DBPassword",
+          "Arn"
+        ]
+      },
+      "Description": "ARN of the parameter in the Store"
+    }
+  }
+}

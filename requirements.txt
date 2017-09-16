@@ -1,0 +1,3 @@
+boto3
+cfn-resource
+psycopg2
