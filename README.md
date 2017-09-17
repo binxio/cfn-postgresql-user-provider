@@ -18,7 +18,8 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::Postgres
 
         "Name": "kong",
         "Password": { "Fn::GetAtt": [ "KongPassword", "Secret" ] },
-	"CreateDatabase": True,
+	"WithDatabase": True,
+	"DeletionPolicy": "Retain",
 
         "Database": {
 		"Host": "postgres",
@@ -64,6 +65,4 @@ aws cloudformation wait stack-create-complete  --stack-name cfn-database-user-pr
 ```
 
 ## Conclusion
-With this solution: 
-
-- databases, schemas and users can be provisioned just like a database.
+With this solution users and databases can be provisioned just like a database.
