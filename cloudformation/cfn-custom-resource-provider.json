@@ -1,14 +1,23 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Deployment of CloudFormation Custom Secret Provider",
+  "Description": "Deployment of CloudFormation Custom DBUser Provider",
   "Parameters": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup::Id"
+    },
     "LambdaS3Bucket": {
       "Type": "String",
       "Default": ""
     },
     "CFNSecretProviderZipFileName": {
       "Type": "String",
-      "Default": "lambdas/cfn-custom-secret-provider-latest.zip"
+      "Default": "lambdas/cfn-custom-dbuser-provider-latest.zip"
     }
   },
   "Conditions": {
@@ -28,16 +37,14 @@
         "LambdaRole"
       ],
       "Properties": {
-        "PolicyName": "CFNCustomSecretProviderPolicy",
+        "PolicyName": "CFNCustomDBUserProviderPolicy",
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
             {
               "Effect": "Allow",
               "Action": [
-                "ssm:PutParameter",
-                "ssm:GetParameter",
-                "ssm:DeleteParameter"
+                "ssm:GetParameter"
               ],
               "Resource": [
                 "*"
@@ -46,7 +53,7 @@
             {
               "Effect": "Allow",
               "Action": [
-                "kms:Encrypt"
+                "kms:Decrypt"
               ],
               "Resource": [
                 "*"
@@ -62,13 +69,18 @@
           ]
         },
         "Roles": [
-            { "Ref": "LambdaRole" }
+          {
+            "Ref": "LambdaRole"
+          }
         ]
       }
     },
     "LambdaRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        ],
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -87,13 +99,13 @@
         }
       }
     },
-    "CFNSecretProvider": {
+    "CFNDBUserProvider": {
       "Type": "AWS::Lambda::Function",
       "DependsOn": [
         "LambdaRole"
       ],
       "Properties": {
-        "Description": "CloudFormation Custom:SecretProvider implementation",
+        "Description": "CloudFormation Custom:PostgresDBUser implementation",
         "Code": {
           "S3Bucket": {
             "Fn::If": [
@@ -115,28 +127,35 @@
             ]
           },
           "S3Key": {
-            "Ref": "CFNSecretProviderZipFileName"
+            "Ref": "CFNDBUserProviderZipFileName"
           }
         },
         "FunctionName": {
           "Fn::Join": [
-            ":",
+            "",
             [
-              "arn:aws:lambda",
+              "arn:aws:lambda:",
               {
                 "Ref": "AWS::Region"
               },
+              ":",
               {
                 "Ref": "AWS::AccountId"
               },
-              "function:CFNCustomSecretProvider"
+              "function:kong-io-cfn-dbuser-provider-vpc-",
+              {
+                "Ref": "VPC"
+              }
             ]
           ]
         },
         "Handler": "cfn_secret_provider.handler",
         "MemorySize": 128,
         "Role": {
-          "Fn::GetAtt": [ "LambdaRole", "Arn" ]
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
         },
         "Runtime": "python2.7"
       }

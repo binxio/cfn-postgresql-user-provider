@@ -46,15 +46,22 @@ After the deployment, the Postgres user 'kong' has been created together with a 
 To install this Custom Resource, type:
 
 ```sh
-read -p 'Application VPC id? ' APP_VPC ; export APP_VPC
+export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
+export SUBNET_ID=$(aws ec2 --output text --query Subnets[0].SubnetId \
+			describe-subnets --filters Name=vpc-id,Values=$VPC_ID)
+export SG_ID=$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
+			describe-security-groups --group-names default  --filters Name=vpc-id,Values=$VPC_ID)
+
 aws cloudformation create-stack \
 	--capabilities CAPABILITY_IAM \
 	--stack-name cfn-dbuser-provider \
-	--parameters $(jq -n --arg AppVPC $APP_VPC '[{"ParameterKey": "AppVPC", "ParameterValue": $AppVPC }]') \
+	--parameters "ParameterKey=VPC,ParameterValue=$VPC_ID ParameterKey=Subnet,ParameterValue=$SUBNET_ID ParameterKey=SecurityGroup,ParameterValue=$SG_ID" \
 	--template-body file://cloudformation/cfn-custom-resource-provider.json 
 
 aws cloudformation wait stack-create-complete  --stack-name cfn-dbuser-provider 
 ```
+Note that this uses the default VPC, subnet and security group. As the Lambda functions needs to connect to the database. You will need to 
+install this lambda for each vpc that you want to be able to create database users.
 
 This CloudFormation template will use our pre-packaged provider from `s3://binxio-public/lambdas/cfn-dbuser-provider-latest.zip`.
 
