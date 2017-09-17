@@ -33,7 +33,7 @@ do-build: local-build
 
 local-build: src/*.py venv requirements.txt
 	mkdir -p target/content 
-	pip install -t target/content -r requirements.txt
+	pip install --quiet -t target/content -r requirements.txt
 	cp -r src/* target/content
 	find target/content -type d | xargs  chmod ugo+rx 
 	find target/content -type f | xargs  chmod ugo+r 
@@ -43,7 +43,8 @@ local-build: src/*.py venv requirements.txt
 venv: requirements.txt
 	virtualenv venv  && \
 	. ./venv/bin/activate && \
-	pip install -r requirements.txt 
+	pip install --quiet --upgrade pip && \
+	pip install --quiet -r requirements.txt 
 	
 clean:
 	rm -rf venv target
@@ -52,9 +53,9 @@ clean:
 test: venv
 	jq . cloudformation/*.json > /dev/null
 	. ./venv/bin/activate && \
-	pip install -r requirements.txt -r test-requirements.txt && \
+	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \
-	nosetests ../tests/*.py 
+	nosetests --nologcapture ../tests/*.py 
 
 autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py
