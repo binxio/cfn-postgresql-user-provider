@@ -92,9 +92,9 @@ delete-provider:
 
 demo: 
 	@if aws cloudformation get-template-summary --stack-name $(NAME)-demo >/dev/null 2>&1 ; then \
-		export CFN_COMMAND=update; \
+		export CFN_COMMAND=update; export CFN_TIMEOUT="" ;\
 	else \
-		export CFN_COMMAND=create; \
+		export CFN_COMMAND=create; export CFN_TIMEOUT="--timeout-in-minutes 10" ;\
 	fi ;\
 	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
         export SUBNET_IDS=$$(aws ec2 --output text --query Subnets[*].SubnetId \
@@ -106,7 +106,7 @@ demo:
 		no two subnets or no default security group available in the default VPC" && exit 1 ; \
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
 		--template-body file://cloudformation/demo-stack.json  \
-		--timeout-in-minutes 10 \
+		$$CFN_TIMEOUT \
 		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
 				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 				ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
