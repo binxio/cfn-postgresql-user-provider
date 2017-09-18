@@ -76,7 +76,7 @@ class PostgresDBUser(dict):
 
         if 'Port' not in db:
             raise ResourceValueError("Port is required in Database")
-        if not (type(db['Port']) == int or str.isdigit()):
+        if not (type(db['Port']) == int or str(db['Port']).isdigit()):
             raise ResourceValueError("Port is required to be an integer in Database")
 
         if 'User' not in db:

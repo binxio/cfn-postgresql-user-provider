@@ -1,6 +1,7 @@
 import sys
 import uuid
 import cfn_dbuser_provider
+from cfn_dbuser_provider import PostgresDBUser
 import psycopg2
 
 
@@ -153,3 +154,9 @@ def test_invalid_delete():
     del event['ResourceProperties']['User']
     response = cfn_dbuser_provider.delete(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
+
+
+def test_string_port():
+    event = Event('Create', "noop")
+    event['ResourceProperties']['Port'] = '9543'
+    PostgresDBUser(event)
