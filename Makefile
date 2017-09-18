@@ -34,8 +34,17 @@ do-build: local-build
 local-build: src/*.py venv requirements.txt
 	mkdir -p target/content 
 	pip install --quiet -t target/content -r requirements.txt
+	# installing lambda psycopg2 binaries 
+	if [ ! -d target/awslambda-psycopg2 ] ; then \
+		git clone https://github.com/jkehler/awslambda-psycopg2 target/awslambda-psycopg2 ; \
+		(cd target/awslambda-psycopg2 ; git checkout ed3a6f93bf0fc93f90a4dd28adbb651e825deeff ); \
+	fi
+	rm -rf target/content/psycopg2*
+	cp -r target/awslambda-psycopg2/with_ssl_support/psycopg2 target/content	
+	# copy the sources 	
 	cp -r src/* target/content
-	find target/content -type d | xargs  chmod ugo+rx 
+	# set the permissions, as AWS cannot read the files otherwise :-(
+	find target/content -type d | xargs  chmod ugo+rx
 	find target/content -type f | xargs  chmod ugo+r 
 	cd target/content && zip --quiet -9r ../../target/$(NAME)-$(VERSION).zip  *
 	chmod ugo+r target/$(NAME)-$(VERSION).zip
@@ -61,29 +70,52 @@ autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py
 
 deploy-provider:
-	EXISTS=$$(aws cloudformation get-template-summary --stack-name $(NAME) 2>/dev/null) ; \
-	if [[ -z $$EXISTS ]] ; then \
-		aws cloudformation create-stack \
-			--capabilities CAPABILITY_IAM \
-			--stack-name $(NAME) \
-			--template-body file://cloudformation/cfn-custom-resource-provider.json ; \
-		aws cloudformation wait stack-create-complete  --stack-name $(NAME) ; \
+	@set -x ;if aws cloudformation get-template-summary --stack-name $(NAME) >/dev/null 2>&1 ; then \
+		export CFN_COMMAND=update; \
 	else \
-		aws cloudformation update-stack \
-			--capabilities CAPABILITY_IAM \
-			--stack-name $(NAME) \
-			--template-body file://cloudformation/cfn-custom-resource-provider.json ; \
-		aws cloudformation wait stack-update-complete  --stack-name $(NAME) ; \
-	fi
+		export CFN_COMMAND=create; \
+	fi ;\
+	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
+        export SUBNET_IDS=$$(aws ec2 --output text --query Subnets[*].SubnetId \
+                                describe-subnets --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
+	export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
+				describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
+	([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
+		echo "Either there is no default VPC in your account, less then two subnets or no default security group available in the default VPC" && exit 1 ; \
+	echo "$$CFN_COMMAND provider in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group ($$SG_ID)." ; \
+	aws cloudformation $$CFN_COMMAND-stack \
+		--capabilities CAPABILITY_IAM \
+		--stack-name cfn-dbuser-provider \
+		--template-body file://cloudformation/cfn-custom-resource-provider.json  \
+		--parameters ParameterKey=VPC,ParameterValue=$$VPC_ID \
+			     ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
+			     ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
+	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME) ;
 
 delete-provider:
 	aws cloudformation delete-stack --stack-name $(NAME)
 	aws cloudformation wait stack-delete-complete  --stack-name $(NAME)
 
-demo: deploy-provider
-	aws cloudformation create-stack --stack-name $(NAME)-demo \
-		--template-body file://cloudformation/demo-stack.json  
-	aws cloudformation wait stack-create-complete  --stack-name $(NAME)-demo
+demo: 
+	@if aws cloudformation get-template-summary --stack-name $(NAME)-demo >/dev/null 2>&1 ; then \
+		export CFN_COMMAND=update; \
+	else \
+		export CFN_COMMAND=create; \
+	fi ;\
+	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
+        export SUBNET_IDS=$$(aws ec2 --output text --query Subnets[*].SubnetId \
+                                describe-subnets --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
+        export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
+                                describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
+        ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
+                echo "Either there is no default VPC in your account, \
+		no two subnets or no default security group available in the default VPC" && exit 1 ; \
+	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
+		--template-body file://cloudformation/demo-stack.json  \
+		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
+				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
+				ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
+	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo ;
 
 delete-demo:
 	aws cloudformation delete-stack --stack-name $(NAME)-demo 
