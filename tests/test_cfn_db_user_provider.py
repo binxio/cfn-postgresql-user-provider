@@ -52,7 +52,7 @@ def test_create_user():
 
     event = Event('Create', name, with_database=True)
     response = cfn_dbuser_provider.create(event, {})
-    assert response['Status'] == 'FAILED', response['Reason']
+    assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
 
     # delete non existing user
     event = Event('Delete', name + "-", physical_resource_id + '-')
@@ -113,6 +113,10 @@ def test_create_database():
     physical_resource_id = response['PhysicalResourceId']
     expect_id = 'postgresql:localhost:5432:postgres:%(name)s:%(name)s' % {'name': name}
     assert physical_resource_id == expect_id, 'expected %s, got %s' % (expect_id, physical_resource_id)
+
+    # create the database again
+    response = cfn_dbuser_provider.create(event, {})
+    assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
 
     # delete non existing database
     event = Event('Delete', name + "-", physical_resource_id + '-')

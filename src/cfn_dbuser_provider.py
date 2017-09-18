@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import boto3
@@ -9,7 +10,7 @@ from psycopg2.extensions import AsIs
 import cfn_resource
 
 log = logging.getLogger()
-log.setLevel(logging.DEBUG)
+log.setLevel(os.getenv("LOGLEVEL", logging.INFO))
 handler = cfn_resource.Resource()
 
 
@@ -64,7 +65,7 @@ class PostgresDBUser(dict):
             raise ResourceValueError("Database property is required and must be an object")
 
         if 'DeletionPolicy' not in self:
-            raise ResourceValueError("User property is required")
+            raise ResourceValueError("DeletionPolicy property is required")
 
         if self['DeletionPolicy'] not in ['Retain', 'Drop']:
             raise ResourceValueError("DeletionPolicy has an invalid value '%s', choose 'Drop' or 'Retain'." %
@@ -177,42 +178,71 @@ class PostgresDBUser(dict):
             rows = cursor.fetchall()
             return len(rows) > 0
 
-    def exists(self):
-        if self.with_database:
-            return self.user_exists() or self.db_exists()
+    def drop_user(self):
+        with self.connection.cursor() as cursor:
+            if self.deletion_policy == 'Drop':
+                log.info('drop role  %s', self.user)
+                cursor.execute('DROP ROLE %s', [AsIs(self.user)])
+            else:
+                log.info('disable login of  %s', self.user)
+                cursor.execute("ALTER ROLE %s NOLOGIN", [AsIs(self.user)])
+
+    def drop_database(self):
+        if self.deletion_policy == 'Drop':
+            log.info('drop database of %s', self.user)
+            with self.connection.cursor() as cursor:
+                cursor.execute('DROP DATABASE %s', [AsIs(self.user)])
         else:
-            return self.user_exists()
+            log.info('not dropping database %s', self.user)
 
     def update_password(self):
+        log.info('update password of %s', self.user)
         with self.connection.cursor() as cursor:
             cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.password])
 
-    def drop(self):
-        with self.connection.cursor() as cursor:
-            if self.deletion_policy == 'Drop':
-                if self.with_database:
-                    cursor.execute('DROP DATABASE %s', [AsIs(self.user)])
-                cursor.execute('DROP ROLE %s', [AsIs(self.user)])
-            else:
-                cursor.execute("ALTER ROLE %s NOLOGIN", [AsIs(self.user)])
-
-    def create(self):
+    def create_user(self):
+        log.info('create user %s', self.user)
         with self.connection.cursor() as cursor:
             cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.password])
-            if self.with_database:
-                cursor.execute('GRANT %s TO %s', [AsIs(self.user), AsIs(self.dbowner)])
-                cursor.execute('CREATE DATABASE %s OWNER %s', [AsIs(self.user), AsIs(self.user)])
-                cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
+
+    def create_database(self):
+        log.info('create database %s', self.user)
+        with self.connection.cursor() as cursor:
+            cursor.execute('GRANT %s TO %s', [AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('CREATE DATABASE %s OWNER %s', [AsIs(self.user), AsIs(self.user)])
+            cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
+
+    def grant_ownership(self):
+        log.info('grant ownership on %s to %s', self.user, self.user)
+        with self.connection.cursor() as cursor:
+            cursor.execute('GRANT %s TO %s', [AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('ALTER DATABASE %s OWNER TO %s', [AsIs(self.user), AsIs(self.user)])
+            cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
+
+    def drop(self):
+        if self.user_exists():
+            self.drop_user()
+        if self.with_database and self.db_exists():
+            self.drop_database()
+
+    def create(self):
+        if self.user_exists():
+            self.update_password()
+        else:
+            self.create_user()
+
+        if self.with_database:
+            if self.db_exists():
+                self.grant_ownership()
+            else:
+                self.create_database()
 
 
 @handler.create
 def create(event, context):
     try:
         with PostgresDBUser(event) as user:
-            if not user.exists():
-                user.create()
-            else:
-                return Response('FAILED', 'User or database %s already exists' % user.user, 'could-not-create')
+            user.create()
         return Response('SUCCESS', '', user.url)
     except Exception as e:
         return Response('FAILED', 'Failed to create user, %s' % e.message, 'could-not-create')
@@ -233,13 +263,15 @@ def update(event, context):
 
 @handler.delete
 def delete(event, context):
+    if event['PhysicalResourceId'] == 'could-not-create':
+        return Response('SUCCESS', 'user was never created', event['PhysicalResourceId'])
+
     try:
         with PostgresDBUser(event) as user:
-            if user.exists():
-                user.drop()
+            user.drop()
         return Response('SUCCESS', '', event['PhysicalResourceId'])
     except ResourceValueError as e:
-        # When resource creation failed, CFN tries to delete the which fails again.
+        # ignore resources we could not create in the first place..
         return Response('SUCCESS', e.message, event['PhysicalResourceId'])
     except Exception as e:
         return Response('FAILED', e.message, event['PhysicalResourceId'])
