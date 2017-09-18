@@ -106,6 +106,7 @@ demo:
 		no two subnets or no default security group available in the default VPC" && exit 1 ; \
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
 		--template-body file://cloudformation/demo-stack.json  \
+		--timeout-in-minutes 10 \
 		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
 				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 				ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
