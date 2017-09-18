@@ -237,7 +237,7 @@ def delete(event, context):
         with PostgresDBUser(event) as user:
             if user.exists():
                 user.drop()
-        return Response('SUCCESS', '', user.url)
+        return Response('SUCCESS', '', event['PhysicalResourceId'])
     except ResourceValueError as e:
         # When resource creation failed, CFN tries to delete the which fails again.
         return Response('SUCCESS', e.message, event['PhysicalResourceId'])
