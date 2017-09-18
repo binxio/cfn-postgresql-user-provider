@@ -1,7 +1,9 @@
 include Makefile.mk
 
 NAME=cfn-dbuser-provider
+
 AWS_REGION=eu-central-1
+S3_BUCKET=binxio-public-$(AWS_REGION)
 
 help:
 	@echo 'make                 - builds a zip file to target/.'
@@ -16,15 +18,16 @@ help:
 deploy:
 	aws s3 --region $(AWS_REGION) \
 		cp target/$(NAME)-$(VERSION).zip \
-		s3://binxio-public-$(AWS_REGION)/lambdas/$(NAME)-$(VERSION).zip 
-	aws s3 --region $(AWS_REGION) cp \
-		s3://binxio-public-$(AWS_REGION)/lambdas/$(NAME)-$(VERSION).zip \
-		s3://binxio-public-$(AWS_REGION)/lambdas/$(NAME)-latest.zip 
+		s3://$(S3_BUCKET)/lambdas/$(NAME)-$(VERSION).zip 
+	aws s3 --region $(AWS_REGION) \
+		cp \
+		s3://$(S3_BUCKET)/lambdas/$(NAME)-$(VERSION).zip \
+		s3://$(S3_BUCKET)/lambdas/$(NAME)-latest.zip 
 	aws s3api --region $(AWS_REGION) \
-		put-object-acl --bucket binxio-public-$(AWS_REGION) \
+		put-object-acl --bucket $(S3_BUCKET) \
 		--acl public-read --key lambdas/$(NAME)-$(VERSION).zip 
 	aws s3api --region $(AWS_REGION) \
-		put-object-acl --bucket binxio-public-$(AWS_REGION) \
+		put-object-acl --bucket $(S3_BUCKET) \
 		--acl public-read --key lambdas/$(NAME)-latest.zip 
 
 do-push: deploy
@@ -101,14 +104,14 @@ demo:
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
                 echo "Either there is no default VPC in your account, \
 		no two subnets or no default security group available in the default VPC" && exit 1 ; \
-	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo2 \
+	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
 		--template-body file://cloudformation/demo-stack.json  \
 		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
 				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 				ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
-	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo2 ;
+	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo ;
 
 delete-demo:
-	aws cloudformation delete-stack --stack-name $(NAME)-demo 
+	aws cloudformation delete-stack --stack-name $(NAME)-demo
 	aws cloudformation wait stack-delete-complete  --stack-name $(NAME)-demo
 
