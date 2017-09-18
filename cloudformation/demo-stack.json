@@ -76,14 +76,6 @@
             "SourceSecurityGroupId": {
               "Ref": "SecurityGroup"
             }
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "5432",
-            "ToPort": "5432",
-            "SourceSecurityGroupId": {
-              "Ref": "SecurityGroup"
-            }
           }
         ],
         "SecurityGroupEgress": [],
@@ -158,7 +150,10 @@
       "Properties": {
         "User": "kong",
         "Password": {
-          "Ref": "KongPassword"
+          "Fn::GetAtt": [
+            "KongPassword",
+            "Secret"
+          ]
         },
         "Database": {
           "User": "root",
