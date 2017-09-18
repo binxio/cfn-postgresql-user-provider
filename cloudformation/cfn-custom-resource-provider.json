@@ -1,12 +1,12 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Deployment of CloudFormation Custom DBUser Provider",
+  "Description": "CloudFormation Custom DBUser Provider",
   "Parameters": {
     "VPC": {
       "Type": "AWS::EC2::VPC::Id"
     },
-    "Subnet": {
-      "Type": "AWS::EC2::Subnet::Id"
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
     },
     "SecurityGroup": {
       "Type": "AWS::EC2::SecurityGroup::Id"
@@ -15,9 +15,9 @@
       "Type": "String",
       "Default": ""
     },
-    "CFNSecretProviderZipFileName": {
+    "CFNProviderZipFileName": {
       "Type": "String",
-      "Default": "lambdas/cfn-custom-dbuser-provider-latest.zip"
+      "Default": "lambdas/cfn-dbuser-provider-latest.zip"
     }
   },
   "Conditions": {
@@ -127,7 +127,17 @@
             ]
           },
           "S3Key": {
-            "Ref": "CFNDBUserProviderZipFileName"
+            "Ref": "CFNProviderZipFileName"
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "SecurityGroup"
+            }
+          ],
+          "SubnetIds": {
+            "Ref": "Subnets"
           }
         },
         "FunctionName": {
@@ -142,14 +152,14 @@
               {
                 "Ref": "AWS::AccountId"
               },
-              "function:kong-io-cfn-dbuser-provider-vpc-",
+              ":function:binxio-cfn-dbuser-provider-",
               {
                 "Ref": "VPC"
               }
             ]
           ]
         },
-        "Handler": "cfn_secret_provider.handler",
+        "Handler": "cfn_dbuser_provider.handler",
         "MemorySize": 128,
         "Role": {
           "Fn::GetAtt": [
