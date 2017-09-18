@@ -146,3 +146,10 @@ def test_create_database():
             cursor.execute('SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s', [name])
             rows = cursor.fetchall()
             assert len(rows) == 0, 'database %s still exists' % name
+
+
+def test_invalid_delete():
+    event = Event('Delete', "noop", 'postgresql:localhost:5432:postgres:%(name)s:%(name)s' % {'name': 'noop'})
+    del event['ResourceProperties']['User']
+    response = cfn_dbuser_provider.delete(event, {})
+    assert response['Status'] == 'SUCCESS', response['Reason']

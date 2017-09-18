@@ -22,6 +22,12 @@ class Response(dict):
         self['Data'] = data
 
 
+class ResourceValueError(ValueError):
+
+    def __init__(self, msg):
+        super(self.__class__, self).__init__(msg)
+
+
 class PostgresDBUser(dict):
 
     def __init__(self, event):
@@ -43,44 +49,45 @@ class PostgresDBUser(dict):
 
     def check_valid(self):
         if 'User' not in self:
-            raise ValueError("User property is required")
+            raise ResourceValueError("User property is required")
         if not re.match(r'\w+', self.user):
-            raise ValueError("User only allowed to contain letter, digits and _")
+            raise ResourceValueError("User only allowed to contain letter, digits and _")
 
         if 'Password' not in self:
-            raise ValueError("Password property is required")
+            raise ResourceValueError("Password property is required")
         if 'WithDatabase' in self:
             v = str(self['WithDatabase']).lower()
             if not (v == 'true' or v == 'false'):
-                raise ValueError('WithDatabase property "%s" is not a boolean' % v)
+                raise ResourceValueError('WithDatabase property "%s" is not a boolean' % v)
 
         if 'Database' not in self or type(self['Database']) != dict:
-            raise ValueError("Database property is required and must be an object")
+            raise ResourceValueError("Database property is required and must be an object")
 
         if 'DeletionPolicy' not in self:
-            raise ValueError("User property is required")
+            raise ResourceValueError("User property is required")
 
         if self['DeletionPolicy'] not in ['Retain', 'Drop']:
-            raise ValueError("DeletionPolicy has an invalid value '%s', choose 'Drop' or 'Retain'." % self['DeletionPolicy'])
+            raise ResourceValueError("DeletionPolicy has an invalid value '%s', choose 'Drop' or 'Retain'." %
+                                     self['DeletionPolicy'])
 
         db = self['Database']
         if 'Host' not in db:
-            raise ValueError("Host is required in Database")
+            raise ResourceValueError("Host is required in Database")
 
         if 'Port' not in db:
-            raise ValueError("Port is required in Database")
+            raise ResourceValueError("Port is required in Database")
         if not (type(db['Port']) == int or str.isdigit()):
-            raise ValueError("Port is required to be an integer in Database")
+            raise ResourceValueError("Port is required to be an integer in Database")
 
         if 'User' not in db:
-            raise ValueError("User is required in Database")
+            raise ResourceValueError("User is required in Database")
         if not re.match(r'\w+', self.dbowner):
-            raise ValueError("User only allowed to contain letter, digits and _")
+            raise ResourceValueError("User only allowed to contain letter, digits and _")
 
         if 'Password' not in db:
-            raise ValueError("Password is required in Database")
+            raise ResourceValueError("Password is required in Database")
         if 'DBName' not in db:
-            raise ValueError("DBName is required in Database")
+            raise ResourceValueError("DBName is required in Database")
 
     @property
     def user(self):
@@ -231,5 +238,8 @@ def delete(event, context):
             if user.exists():
                 user.drop()
         return Response('SUCCESS', '', user.url)
+    except ResourceValueError as e:
+        # When resource creation failed, CFN tries to delete the which fails again.
+        return Response('SUCCESS', e.message, event['PhysicalResourceId'])
     except Exception as e:
         return Response('FAILED', e.message, event['PhysicalResourceId'])
