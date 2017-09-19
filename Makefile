@@ -79,8 +79,8 @@ deploy-provider:
 	echo "$$CFN_COMMAND provider in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group $$SG_ID." ; \
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
-		--stack-name cfn-dbuser-provider \
-		--template-body file://cloudformation/cfn-custom-resource-provider.json  \
+		--stack-name $(NAME) \
+		--template-body file://cloudformation/cfn-resource-provider.json  \
 		--parameters ParameterKey=VPC,ParameterValue=$$VPC_ID \
 			     ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 			     ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
