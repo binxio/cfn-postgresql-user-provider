@@ -70,13 +70,13 @@ deploy-provider:
 		export CFN_COMMAND=create; \
 	fi ;\
 	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
-        export SUBNET_IDS=$$(aws ec2 --output text --query Subnets[*].SubnetId \
-                                describe-subnets --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
+        export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?GatewayId == null]].Associations[].SubnetId' \
+                                describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
 	export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
 				describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
 	([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
 		echo "Either there is no default VPC in your account, less then two subnets or no default security group available in the default VPC" && exit 1 ; \
-	echo "$$CFN_COMMAND provider in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group ($$SG_ID)." ; \
+	echo "$$CFN_COMMAND provider in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group $$SG_ID." ; \
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name cfn-dbuser-provider \
@@ -97,13 +97,13 @@ demo:
 		export CFN_COMMAND=create; export CFN_TIMEOUT="--timeout-in-minutes 10" ;\
 	fi ;\
 	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
-        export SUBNET_IDS=$$(aws ec2 --output text --query Subnets[*].SubnetId \
-                                describe-subnets --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
+        export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?GatewayId == null]].Associations[].SubnetId' \
+                                describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
         export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
                                 describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
+	echo "$$CFN_COMMAND demo in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group $$SG_ID." ; \
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
-                echo "Either there is no default VPC in your account, \
-		no two subnets or no default security group available in the default VPC" && exit 1 ; \
+                echo "Either there is no default VPC in your account, no two subnets or no default security group available in the default VPC" && exit 1 ; \
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
 		--template-body file://cloudformation/demo-stack.json  \
 		$$CFN_TIMEOUT \
