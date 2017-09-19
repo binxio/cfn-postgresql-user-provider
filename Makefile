@@ -58,7 +58,7 @@ test: venv
 	. ./venv/bin/activate && \
 	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \
-	nosetests --nologcapture ../tests/*.py 
+	nosetests ../tests/*.py 
 
 autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py

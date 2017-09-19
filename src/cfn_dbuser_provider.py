@@ -172,9 +172,9 @@ class PostgresDBUser(dict):
             rows = cursor.fetchall()
             return len(rows) > 0
 
-    def user_exists(self):
+    def role_exists(self):
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT FROM pg_catalog.pg_user WHERE usename = %s", [self.user])
+            cursor.execute("SELECT FROM pg_catalog.pg_roles WHERE rolname = %s", [self.user])
             rows = cursor.fetchall()
             return len(rows) > 0
 
@@ -200,7 +200,7 @@ class PostgresDBUser(dict):
         with self.connection.cursor() as cursor:
             cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.password])
 
-    def create_user(self):
+    def create_role(self):
         log.info('create user %s', self.user)
         with self.connection.cursor() as cursor:
             cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.password])
@@ -220,16 +220,16 @@ class PostgresDBUser(dict):
             cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
 
     def drop(self):
-        if self.user_exists():
-            self.drop_user()
         if self.with_database and self.db_exists():
             self.drop_database()
+        if self.role_exists():
+            self.drop_user()
 
     def create(self):
-        if self.user_exists():
+        if self.role_exists():
             self.update_password()
         else:
-            self.create_user()
+            self.create_role()
 
         if self.with_database:
             if self.db_exists():
