@@ -13,6 +13,8 @@ log = logging.getLogger()
 log.setLevel(os.getenv("LOGLEVEL", logging.INFO))
 handler = cfn_resource.Resource()
 
+ssm = boto3.client('ssm')
+
 
 class Response(dict):
 
@@ -85,18 +87,24 @@ class PostgresDBUser(dict):
         if not re.match(r'\w+', self.dbowner):
             raise ResourceValueError("User only allowed to contain letter, digits and _")
 
-        if 'Password' not in db:
-            raise ResourceValueError("Password is required in Database")
+        if ('Password' not in db and 'PasswordName' not in db) or ('Password' in db and 'PasswordName' in db):
+            raise ResourceValueError("Password or PasswordName is required in Database")
+
+        if 'PasswordName' in db:
+            try:
+                response = ssm.get_parameter(Name=db['PasswordName'], WithDecryption=True)
+                self.password = response['Parameter']['Value']
+            except ClientError as e:
+                raise ResourceValueError('Could not obtain password using name %s, %s' % db['PasswordName'], e.message)
+        else:
+            self.password = db['Password']
+
         if 'DBName' not in db:
             raise ResourceValueError("DBName is required in Database")
 
     @property
     def user(self):
         return self['User']
-
-    @property
-    def password(self):
-        return self['Password']
 
     @property
     def host(self):
@@ -124,9 +132,8 @@ class PostgresDBUser(dict):
 
     @property
     def connect_info(self):
-        return {'host': self['Database']['Host'], 'port': self['Database']['Port'],
-                'dbname': self['Database']['DBName'], 'user': self['Database']['User'],
-                'password': self['Database']['Password']}
+        return {'host': self.host, 'port': self.port, 'dbname': self.dbname,
+                'user': self.dbowner, 'password': self.password}
 
     @property
     def logical_resource_id(self):

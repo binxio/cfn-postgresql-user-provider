@@ -27,7 +27,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::Postgres
 		"Port": 5432,
 		"Database": "root",
 		"User": "root",
-		"Password": { "Fn::GetAtt": [ "DBPassword", "Secret" ]}
+		"PasswordName": "/postgres/root/PGPASSWORD"
 	}
 
         "ServiceToken": { "Fn::Join": [ "", [ "arn:aws:lambda:", { "Ref": "AWS::Region" }, ":", { "Ref": "AWS::AccountId" }, 

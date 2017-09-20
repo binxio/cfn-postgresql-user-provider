@@ -3,6 +3,7 @@ import uuid
 import cfn_dbuser_provider
 from cfn_dbuser_provider import PostgresDBUser
 import psycopg2
+import boto3
 
 
 class Event(dict):
@@ -164,3 +165,24 @@ def test_string_port():
     event = Event('Create', "noop")
     event['ResourceProperties']['Port'] = '9543'
     PostgresDBUser(event)
+
+
+def test_password_parameter_use():
+    ssm = boto3.client('ssm')
+    name = 'u%s' % str(uuid.uuid4()).replace('-', '')
+    try:
+        event = Event('Create', name)
+        password = event['ResourceProperties']['Database']['Password']
+        del event['ResourceProperties']['Database']['Password']
+        event['ResourceProperties']['Database']['PasswordName'] = name
+
+        ssm.put_parameter(Name=name, Value=password, Type='SecureString', Overwrite=True)
+        response = cfn_dbuser_provider.create(event, {})
+
+        with event.test_user_connection() as connection:
+            pass
+
+        event['PhysicalResourceId'] = response['PhysicalResourceId']
+        cfn_dbuser_provider.delete(event, {})
+    finally:
+        ssm.delete_parameter(Name=name)
