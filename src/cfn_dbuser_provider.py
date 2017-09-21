@@ -68,7 +68,6 @@ class PostgresDBUser(dict):
                 raise ResourceValueError('Could not obtain password using name %s, %s' % (self['PasswordParameterName'], e.message))
         else:
             self.user_password = self['Password']
-        log.info('obtained password %s', self.user_password)
 
         if 'WithDatabase' in self:
             v = str(self['WithDatabase']).lower()
@@ -215,12 +214,12 @@ class PostgresDBUser(dict):
             log.info('not dropping database %s', self.user)
 
     def update_password(self):
-        log.info('update password of role %s with %s', self.user, self.user_password)
+        log.info('update password of role %s', self.user)
         with self.connection.cursor() as cursor:
             cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.user_password])
 
     def create_role(self):
-        log.info('create role %s with %s', self.user, self.user_password)
+        log.info('create role %s ', self.user)
         with self.connection.cursor() as cursor:
             cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.user_password])
 
