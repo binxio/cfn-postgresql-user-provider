@@ -9,8 +9,8 @@ from psycopg2.extensions import AsIs
 
 import cfn_resource
 
+logging.basicConfig(level=os.getenv("LOGLEVEL", logging.INFO))
 log = logging.getLogger()
-log.setLevel(os.getenv("LOGLEVEL", logging.INFO))
 handler = cfn_resource.Resource()
 
 ssm = boto3.client('ssm')
@@ -34,12 +34,13 @@ class ResourceValueError(ValueError):
 class PostgresDBUser(dict):
 
     def __init__(self, event):
+        self.owner_password = None
+        self.user_password = None
         self.update(event)
         self.update(event['ResourceProperties'])
         del self['ResourceProperties']
         self.add_defaults()
         self.check_valid()
-        self._value = None
 
     def add_defaults(self):
         if 'Database' in self:
@@ -53,11 +54,22 @@ class PostgresDBUser(dict):
     def check_valid(self):
         if 'User' not in self:
             raise ResourceValueError("User property is required")
-        if not re.match(r'\w+', self.user):
-            raise ResourceValueError("User only allowed to contain letter, digits and _")
+        if not re.match(r'[a-zA-Z][\$\w]+', self.user):
+            raise ResourceValueError("User only allowed to start with a letter followed by zero or more letters, digits, _ or $")
 
-        if 'Password' not in self:
-            raise ResourceValueError("Password property is required")
+        if ('Password' not in self and 'PasswordParameterName' not in self) or ('Password' in self and 'PasswordParameterName' in self):
+            raise ResourceValueError("Password or PasswordParameterName is required")
+
+        if 'PasswordParameterName' in self:
+            try:
+                response = ssm.get_parameter(Name=self['PasswordParameterName'], WithDecryption=True)
+                self.user_password = response['Parameter']['Value']
+            except ClientError as e:
+                raise ResourceValueError('Could not obtain password using name %s, %s' % (self['PasswordParameterName'], e.message))
+        else:
+            self.user_password = self['Password']
+        log.info('obtained password %s', self.user_password)
+
         if 'WithDatabase' in self:
             v = str(self['WithDatabase']).lower()
             if not (v == 'true' or v == 'false'):
@@ -87,17 +99,17 @@ class PostgresDBUser(dict):
         if not re.match(r'\w+', self.dbowner):
             raise ResourceValueError("User only allowed to contain letter, digits and _")
 
-        if ('Password' not in db and 'PasswordName' not in db) or ('Password' in db and 'PasswordName' in db):
-            raise ResourceValueError("Password or PasswordName is required in Database")
+        if ('Password' not in db and 'PasswordParameterName' not in db) or ('Password' in db and 'PasswordParameterName' in db):
+            raise ResourceValueError("Password or PasswordParameterName is required in Database")
 
-        if 'PasswordName' in db:
+        if 'PasswordParameterName' in db:
             try:
-                response = ssm.get_parameter(Name=db['PasswordName'], WithDecryption=True)
-                self.password = response['Parameter']['Value']
+                response = ssm.get_parameter(Name=db['PasswordParameterName'], WithDecryption=True)
+                self.dbowner_password = response['Parameter']['Value']
             except ClientError as e:
-                raise ResourceValueError('Could not obtain password using name %s, %s' % db['PasswordName'], e.message)
+                raise ResourceValueError('Could not obtain password using name %s, %s' % (db['PasswordParameterName'], e.message))
         else:
-            self.password = db['Password']
+            self.dbowner_password = db['Password']
 
         if 'DBName' not in db:
             raise ResourceValueError("DBName is required in Database")
@@ -133,7 +145,7 @@ class PostgresDBUser(dict):
     @property
     def connect_info(self):
         return {'host': self.host, 'port': self.port, 'dbname': self.dbname,
-                'user': self.dbowner, 'password': self.password}
+                'user': self.dbowner, 'password': self.dbowner_password}
 
     @property
     def logical_resource_id(self):
@@ -203,14 +215,14 @@ class PostgresDBUser(dict):
             log.info('not dropping database %s', self.user)
 
     def update_password(self):
-        log.info('update password of %s', self.user)
+        log.info('update password of role %s with %s', self.user, self.user_password)
         with self.connection.cursor() as cursor:
-            cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.password])
+            cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.user_password])
 
     def create_role(self):
-        log.info('create user %s', self.user)
+        log.info('create role %s with %s', self.user, self.user_password)
         with self.connection.cursor() as cursor:
-            cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.password])
+            cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.user_password])
 
     def create_database(self):
         log.info('create database %s', self.user)

@@ -11,6 +11,7 @@ To declare this entity in your AWS CloudFormation template, use the following sy
   "Properties" : {
         "Name": String,
         "Password": String,
+        "PasswordParameterName": String,
 	"WithDatabase": Bool,
 	"DeletionPolicy": STRING,
 
@@ -20,7 +21,7 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 		"Database": STRING,
 		"User": STRING,
 		"Password": STRING,
-		"PasswordName": STRING
+		"PasswordParameterName": STRING
 	}
 
         "ServiceToken": STRING
@@ -33,6 +34,7 @@ You can specify the following properties:
 
 - `Name` - of the user to create
 - `Password` - of the user
+- `PasswordParameterName` - name of the parameter in the store containing the password of the user
 - `WithDatabase` - [true|false] if a database is to be created with the same name
 - `DeletionPolicy` - [Retain|Drop] when the resource is deleted
 - `Database` - connection information of the database owner
@@ -41,7 +43,7 @@ You can specify the following properties:
 -- `Database` - name to connect to.
 -- `User` - name of the database owner.
 -- `Password` - to identify the user with.
--- `PasswordName` - name of the parameter in the store containing the password of the user
+-- `PasswordParameterName` - name of the parameter in the store containing the password of the user
 
 
 ## Return values

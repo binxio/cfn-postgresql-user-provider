@@ -4,6 +4,9 @@ import cfn_dbuser_provider
 from cfn_dbuser_provider import PostgresDBUser
 import psycopg2
 import boto3
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class Event(dict):
@@ -24,23 +27,27 @@ class Event(dict):
         if physical_resource_id is not None:
             self['PhysicalResourceId'] = physical_resource_id
 
-    def test_owner_connection(self):
+    def test_owner_connection(self, password=None):
         p = self['ResourceProperties']
+        if password is None:
+            password = p['Database']['Password']
         args = {'host': p['Database']['Host'], 'port': p['Database']['Port'], 'dbname': p['Database']['DBName'],
-                'user': p['Database']['User'], 'password': p['Database']['Password']}
+                'user': p['Database']['User'], 'password': password}
         return psycopg2.connect(**args)
 
-    def test_user_connection(self):
+    def test_user_connection(self, password=None):
         p = self['ResourceProperties']
+        if password is None:
+            password = p['Password']
         args = {'host': p['Database']['Host'], 'port': p['Database']['Port'], 'dbname': p['Database']['DBName'],
-                'user': p['User'], 'password': p['Password']}
+                'user': p['User'], 'password': password}
         return psycopg2.connect(**args)
 
 
 def test_create_user():
     # create a test user
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
-    event = Event('Create', name)
+    event = Event('Create', name, with_database=False)
     response = cfn_dbuser_provider.create(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
     assert 'PhysicalResourceId' in response
@@ -71,6 +78,11 @@ def test_create_user():
     except:
         pass
 
+    event = Event('Delete', name, physical_resource_id, with_database=True)
+    event['ResourceProperties']['DeletionPolicy'] = 'Drop'
+    response = cfn_dbuser_provider.delete(event, {})
+    assert response['Status'] == 'SUCCESS', response['Reason']
+
 
 def test_update_password():
     # create a test database
@@ -100,6 +112,7 @@ def test_update_password():
 
     # delete the created database
     event['User'] = name
+    event['ResourceProperties']['DeletionPolicy'] = 'Drop'
     response = cfn_dbuser_provider.delete(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
@@ -143,7 +156,7 @@ def test_create_database():
 
     # drop the database
     event = Event('Delete', name, physical_resource_id, with_database=True)
-    event['DeletionPolicy'] = 'Drop'
+    event['ResourceProperties']['DeletionPolicy'] = 'Drop'
     response = cfn_dbuser_provider.delete(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
@@ -169,20 +182,35 @@ def test_string_port():
 
 def test_password_parameter_use():
     ssm = boto3.client('ssm')
-    name = 'u%s' % str(uuid.uuid4()).replace('-', '')
+    uuid_string = str(uuid.uuid4()).replace('-', '')
+    name = 'user_%s' % uuid_string
+    user_password_name = 'p%s' % uuid_string
+    dbowner_password_name = 'o%s' % uuid_string
     try:
         event = Event('Create', name)
-        password = event['ResourceProperties']['Database']['Password']
-        del event['ResourceProperties']['Database']['Password']
-        event['ResourceProperties']['Database']['PasswordName'] = name
 
-        ssm.put_parameter(Name=name, Value=password, Type='SecureString', Overwrite=True)
+        user_password = str(uuid.uuid4())
+        del event['ResourceProperties']['Password']
+        event['ResourceProperties']['PasswordParameterName'] = user_password_name
+
+        dbowner_password = event['ResourceProperties']['Database']['Password']
+        del event['ResourceProperties']['Database']['Password']
+        event['ResourceProperties']['Database']['PasswordParameterName'] = dbowner_password_name
+
+        ssm.put_parameter(Name=user_password_name, Value=user_password, Type='SecureString', Overwrite=True)
+        ssm.put_parameter(Name=dbowner_password_name, Value=dbowner_password, Type='SecureString', Overwrite=True)
         response = cfn_dbuser_provider.create(event, {})
 
-        with event.test_user_connection() as connection:
+        with event.test_user_connection(user_password) as connection:
             pass
 
         event['PhysicalResourceId'] = response['PhysicalResourceId']
+
+        event['ResourceProperties']['DeletionPolicy'] = 'Drop'
         cfn_dbuser_provider.delete(event, {})
+    except Exception as e:
+        sys.stderr.write('%s\n' % e)
+        raise
     finally:
-        ssm.delete_parameter(Name=name)
+        ssm.delete_parameter(Name=user_password_name)
+        ssm.delete_parameter(Name=dbowner_password_name)
