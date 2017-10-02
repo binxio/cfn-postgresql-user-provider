@@ -102,6 +102,7 @@
       "Properties": {
         "Name": "/postgres/root/PGPASSWORD",
         "Alphabet": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "ReturnSecret": true,
         "ServiceToken": {
           "Fn::Join": [
             ":",
