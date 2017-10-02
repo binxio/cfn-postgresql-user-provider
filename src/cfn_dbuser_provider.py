@@ -7,139 +7,118 @@ import psycopg2
 from botocore.exceptions import ClientError
 from psycopg2.extensions import AsIs
 
-import cfn_resource
+from cfn_provider import ResourceProvider
 
-logging.basicConfig(level=os.getenv("LOGLEVEL", logging.INFO))
 log = logging.getLogger()
-handler = cfn_resource.Resource()
-
-ssm = boto3.client('ssm')
+log.setLevel(level=os.getenv("LOGLEVEL", logging.INFO))
 
 
-class Response(dict):
+class PostgresDBUserProvider(ResourceProvider):
 
-    def __init__(self, status, reason, resource_id, data={}):
-        self['Status'] = status
-        self['Reason'] = reason
-        self['PhysicalResourceId'] = resource_id
-        self['Data'] = data
-
-
-class ResourceValueError(ValueError):
-
-    def __init__(self, msg):
-        super(self.__class__, self).__init__(msg)
-
-
-class PostgresDBUser(dict):
-
-    def __init__(self, event):
+    def __init__(self):
+        super(PostgresDBUserProvider, self).__init__()
+        self.ssm = boto3.client('ssm')
+        self.connection = None
         self.owner_password = None
         self.user_password = None
-        self.update(event)
-        self.update(event['ResourceProperties'])
-        del self['ResourceProperties']
-        self.add_defaults()
-        self.check_valid()
 
-    def add_defaults(self):
-        if 'Database' in self:
-            if 'Port' not in self['Database']:
-                self['Database']['Port'] = 5432
-        if 'WithDatabase' not in self:
-            self['WithDatabase'] = 'true'
-        if 'DeletionPolicy' not in self:
-            self['DeletionPolicy'] = 'Retain'
+    def is_valid_request(self):
+        try:
+            self.check_valid()
+        except ValueError as e:
+            self.fail(e.message)
+            return False
+        return True
 
     def check_valid(self):
-        if 'User' not in self:
-            raise ResourceValueError("User property is required")
-        if not re.match(r'[a-zA-Z][\$\w]+', self.user):
-            raise ResourceValueError("User only allowed to start with a letter followed by zero or more letters, digits, _ or $")
+        if 'User' not in self.properties:
+            raise ValueError("User property is required")
+        if not re.match(r'[a-zA-Z][\$\w]+', self.properties['User']):
+            raise ValueError(
+                "User only allowed to start with a letter followed by zero or more letters, digits, _ or $")
 
-        if ('Password' not in self and 'PasswordParameterName' not in self) or ('Password' in self and 'PasswordParameterName' in self):
-            raise ResourceValueError("Password or PasswordParameterName is required")
+        if ('Password' not in self.properties and 'PasswordParameterName' not in self.properties) or ('Password' in self.properties and 'PasswordParameterName' in self.properties):
+            raise ValueError("Password or PasswordParameterName is required")
 
-        if 'PasswordParameterName' in self:
+        if 'PasswordParameterName' in self.properties:
+            name = self.properties['PasswordParameterName']
             try:
-                response = ssm.get_parameter(Name=self['PasswordParameterName'], WithDecryption=True)
+                response = self.ssm.get_parameter(Name=name, WithDecryption=True)
                 self.user_password = response['Parameter']['Value']
             except ClientError as e:
-                raise ResourceValueError('Could not obtain password using name %s, %s' % (self['PasswordParameterName'], e.message))
+                raiseValueError('Could not obtain password using name %s, %s' % (name, e.message))
         else:
-            self.user_password = self['Password']
+            self.user_password = self.properties['Password']
 
-        if 'WithDatabase' in self:
-            v = str(self['WithDatabase']).lower()
+        if 'WithDatabase' in self.properties:
+            v = str(self.properties['WithDatabase']).lower()
             if not (v == 'true' or v == 'false'):
-                raise ResourceValueError('WithDatabase property "%s" is not a boolean' % v)
+                raise ValueError('WithDatabase property "%s" is not a boolean' % v)
 
-        if 'Database' not in self or type(self['Database']) != dict:
-            raise ResourceValueError("Database property is required and must be an object")
+        if 'Database' not in self.properties or type(self.properties['Database']) != dict:
+            raise ResourceValueError('Database property is required and must be an object')
 
-        if 'DeletionPolicy' not in self:
-            raise ResourceValueError("DeletionPolicy property is required")
+        if 'DeletionPolicy' in self.properties and self.properties['DeletionPolicy'] not in ['Retain', 'Drop']:
+            raise ValueError("DeletionPolicy has an invalid value '%s', choose 'Drop' or 'Retain'." %
+                             self.properties['DeletionPolicy'])
 
-        if self['DeletionPolicy'] not in ['Retain', 'Drop']:
-            raise ResourceValueError("DeletionPolicy has an invalid value '%s', choose 'Drop' or 'Retain'." %
-                                     self['DeletionPolicy'])
+        db = self.properties['Database']
+        if 'DBName' not in db:
+            raise ValueError("DBName is required in Database")
 
-        db = self['Database']
         if 'Host' not in db:
-            raise ResourceValueError("Host is required in Database")
+            raise ValueError("Host is required in Database")
 
         if 'Port' not in db:
-            raise ResourceValueError("Port is required in Database")
+            raise ValueError("Port is required in Database")
         if not (type(db['Port']) == int or str(db['Port']).isdigit()):
-            raise ResourceValueError("Port is required to be an integer in Database")
+            raise ValueError("Port is required to be an integer in Database")
 
         if 'User' not in db:
-            raise ResourceValueError("User is required in Database")
-        if not re.match(r'\w+', self.dbowner):
-            raise ResourceValueError("User only allowed to contain letter, digits and _")
+            raise ValueError("User is required in Database")
+        if not re.match(r'\w+', db['User']):
+            raise ValueError('User only allowed to contain letter, digits and _')
 
         if ('Password' not in db and 'PasswordParameterName' not in db) or ('Password' in db and 'PasswordParameterName' in db):
-            raise ResourceValueError("Password or PasswordParameterName is required in Database")
+            raise ValueError('Password or PasswordParameterName is required in Database')
 
         if 'PasswordParameterName' in db:
+            name = db['PasswordParameterName']
             try:
-                response = ssm.get_parameter(Name=db['PasswordParameterName'], WithDecryption=True)
+                response = self.ssm.get_parameter(Name=name, WithDecryption=True)
                 self.dbowner_password = response['Parameter']['Value']
             except ClientError as e:
-                raise ResourceValueError('Could not obtain password using name %s, %s' % (db['PasswordParameterName'], e.message))
+                raise ValueError('Could not obtain password using name %s, %s' % (name, e.message))
         else:
             self.dbowner_password = db['Password']
 
-        if 'DBName' not in db:
-            raise ResourceValueError("DBName is required in Database")
-
     @property
     def user(self):
-        return self['User']
+        return self.get('User')
 
     @property
     def host(self):
-        return self['Database']['Host']
+        return self.get('Database', {}).get('Host', None)
 
     @property
     def port(self):
-        return self['Database']['Port']
+        return self.get('Database', {}).get('Port', 5432)
 
     @property
     def dbname(self):
-        return self['Database']['DBName']
+        return self.get('Database', {}).get('DBName', None)
 
     @property
     def dbowner(self):
-        return self['Database']['User']
+        return self.get('Database', {}).get('User', None)
 
     @property
     def with_database(self):
-        return str(self['WithDatabase']).lower() == 'true'
+        return str(self.get('WithDatabase', 'true')).lower() == 'true'
 
     @property
     def deletion_policy(self):
-        return self['DeletionPolicy']
+        return self.get('DeletionPolicy', 'Retain')
 
     @property
     def connect_info(self):
@@ -148,15 +127,11 @@ class PostgresDBUser(dict):
 
     @property
     def logical_resource_id(self):
-        return self['LogicalResourceId'] if 'LogicalResourceId' in self else ''
-
-    @property
-    def physical_resource_id(self):
-        return self['PhysicalResourceId'] if 'PhysicalResourceId' in self else ''
+        return self.request['LogicalResourceId'] if 'LogicalResourceId' in self else ''
 
     @property
     def allow_update(self):
-        return 'PhysicalResourceId' in self and self.physical_resource_id == self.url
+        return self.url == self.physical_resource_id
 
     @property
     def url(self):
@@ -172,27 +147,21 @@ class PostgresDBUser(dict):
         except Exception as e:
             raise ValueError('Failed to connect, %s' % e.message)
 
-    def __enter__(self):
-        self.connect()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
-        return False
-
     def close(self):
         if self.connection:
             self.connection.close()
 
     def db_exists(self):
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT FROM pg_catalog.pg_database WHERE datname = %s", [self.user])
+            cursor.execute(
+                "SELECT FROM pg_catalog.pg_database WHERE datname = %s", [self.user])
             rows = cursor.fetchall()
             return len(rows) > 0
 
     def role_exists(self):
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT FROM pg_catalog.pg_roles WHERE rolname = %s", [self.user])
+            cursor.execute(
+                "SELECT FROM pg_catalog.pg_roles WHERE rolname = %s", [self.user])
             rows = cursor.fetchall()
             return len(rows) > 0
 
@@ -216,26 +185,34 @@ class PostgresDBUser(dict):
     def update_password(self):
         log.info('update password of role %s', self.user)
         with self.connection.cursor() as cursor:
-            cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(self.user), self.user_password])
+            cursor.execute("ALTER ROLE %s LOGIN ENCRYPTED PASSWORD %s", [
+                           AsIs(self.user), self.user_password])
 
     def create_role(self):
         log.info('create role %s ', self.user)
         with self.connection.cursor() as cursor:
-            cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [AsIs(self.user), self.user_password])
+            cursor.execute('CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s', [
+                           AsIs(self.user), self.user_password])
 
     def create_database(self):
         log.info('create database %s', self.user)
         with self.connection.cursor() as cursor:
-            cursor.execute('GRANT %s TO %s', [AsIs(self.user), AsIs(self.dbowner)])
-            cursor.execute('CREATE DATABASE %s OWNER %s', [AsIs(self.user), AsIs(self.user)])
-            cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('GRANT %s TO %s', [
+                           AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('CREATE DATABASE %s OWNER %s', [
+                           AsIs(self.user), AsIs(self.user)])
+            cursor.execute('REVOKE %s FROM %s', [
+                           AsIs(self.user), AsIs(self.dbowner)])
 
     def grant_ownership(self):
         log.info('grant ownership on %s to %s', self.user, self.user)
         with self.connection.cursor() as cursor:
-            cursor.execute('GRANT %s TO %s', [AsIs(self.user), AsIs(self.dbowner)])
-            cursor.execute('ALTER DATABASE %s OWNER TO %s', [AsIs(self.user), AsIs(self.user)])
-            cursor.execute('REVOKE %s FROM %s', [AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('GRANT %s TO %s', [
+                           AsIs(self.user), AsIs(self.dbowner)])
+            cursor.execute('ALTER DATABASE %s OWNER TO %s', [
+                           AsIs(self.user), AsIs(self.user)])
+            cursor.execute('REVOKE %s FROM %s', [
+                           AsIs(self.user), AsIs(self.dbowner)])
 
     def drop(self):
         if self.with_database and self.db_exists():
@@ -243,7 +220,7 @@ class PostgresDBUser(dict):
         if self.role_exists():
             self.drop_user()
 
-    def create(self):
+    def create_user(self):
         if self.role_exists():
             self.update_password()
         else:
@@ -255,41 +232,43 @@ class PostgresDBUser(dict):
             else:
                 self.create_database()
 
+    def create(self):
+        try:
+            self.connect()
+            self.create_user()
+            self.set_physical_resource_id(self.url)
+        except Exception as e:
+            self.set_physical_resource_id('could-not-create')
+            self.fail('Failed to create user, %s' % e.message)
+        finally:
+            self.close()
 
-@handler.create
-def create(event, context):
-    try:
-        with PostgresDBUser(event) as user:
-            user.create()
-        return Response('SUCCESS', '', user.url)
-    except Exception as e:
-        return Response('FAILED', 'Failed to create user, %s' % e.message, 'could-not-create')
-
-
-@handler.update
-def update(event, context):
-    try:
-        with PostgresDBUser(event) as user:
-            if user.allow_update:
-                user.update_password()
+    def update(self):
+        try:
+            self.connect()
+            if self.allow_update:
+                self.update_password()
             else:
-                return Response('FAILED', 'Only the password of %s can be updated' % user.user, user.physical_resource_id)
-        return Response('SUCCESS', '', user.url)
-    except Exception as e:
-        return Response('FAILED', 'Failed to update the user, %s' % e.message, event['PhysicalResourceId'])
+                self.fail('Only the password of %s can be updated' % self.user)
+        except Exception as e:
+            self.fail('Failed to update the user, %s' % e.message)
+        finally:
+            self.close()
+
+    def delete(self):
+        if self.physical_resource_id == 'could-not-create':
+            self.success('user was never created')
+
+        try:
+            self.connect()
+            self.drop()
+        except Exception as e:
+            return self.fail(e.message)
+        finally:
+            self.close()
+
+provider = PostgresDBUserProvider()
 
 
-@handler.delete
-def delete(event, context):
-    if event['PhysicalResourceId'] == 'could-not-create':
-        return Response('SUCCESS', 'user was never created', event['PhysicalResourceId'])
-
-    try:
-        with PostgresDBUser(event) as user:
-            user.drop()
-        return Response('SUCCESS', '', event['PhysicalResourceId'])
-    except ResourceValueError as e:
-        # ignore resources we could not create in the first place..
-        return Response('SUCCESS', e.message, event['PhysicalResourceId'])
-    except Exception as e:
-        return Response('FAILED', e.message, event['PhysicalResourceId'])
+def handler(request, context):
+    return provider.handle(request, context)

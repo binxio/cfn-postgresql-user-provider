@@ -1,10 +1,9 @@
 import sys
 import uuid
-import cfn_dbuser_provider
-from cfn_dbuser_provider import PostgresDBUser
 import psycopg2
 import boto3
 import logging
+from cfn_dbuser_provider import handler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,8 +12,8 @@ class Event(dict):
 
     def __init__(self, request_type, user, physical_resource_id=None, with_database=False):
         self.update({
-            'RequestType': 'Create',
-            'ResponseURL': 'http://pre-signed-S3-url-for-response',
+            'RequestType': request_type,
+            'ResponseURL': 'https://httpbin.org/put',
             'StackId': 'arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid',
             'RequestId': 'request-%s' % str(uuid.uuid4()),
             'ResourceType': 'Custom::PostgresDBUser',
@@ -47,8 +46,9 @@ class Event(dict):
 def test_create_user():
     # create a test user
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
+    print name
     event = Event('Create', name, with_database=False)
-    response = cfn_dbuser_provider.create(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
@@ -59,17 +59,17 @@ def test_create_user():
         pass
 
     event = Event('Create', name, with_database=True)
-    response = cfn_dbuser_provider.create(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
 
     # delete non existing user
     event = Event('Delete', name + "-", physical_resource_id + '-')
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     # delete the created user
     event = Event('Delete', name, physical_resource_id)
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     try:
@@ -80,7 +80,7 @@ def test_create_user():
 
     event = Event('Delete', name, physical_resource_id, with_database=True)
     event['ResourceProperties']['DeletionPolicy'] = 'Drop'
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
 
@@ -89,7 +89,7 @@ def test_update_password():
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=True)
     event['DeletionPolicy'] = 'Drop'
-    response = cfn_dbuser_provider.create(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
@@ -99,7 +99,7 @@ def test_update_password():
     # update the password
     event = Event('Update', name, physical_resource_id, with_database=True)
     event['Password'] = 'geheim'
-    response = cfn_dbuser_provider.update(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     with event.test_user_connection() as connection:
@@ -107,13 +107,14 @@ def test_update_password():
 
     # update the user is not possible
     event = Event('Update', name + '-', physical_resource_id, with_database=True)
-    response = cfn_dbuser_provider.update(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'FAILED', response['Reason']
 
     # delete the created database
     event['User'] = name
     event['ResourceProperties']['DeletionPolicy'] = 'Drop'
-    response = cfn_dbuser_provider.delete(event, {})
+    event['RequestType'] = 'Delete'
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
 
@@ -121,7 +122,7 @@ def test_create_database():
     # create a test database
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=True)
-    response = cfn_dbuser_provider.create(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
@@ -129,17 +130,17 @@ def test_create_database():
     assert physical_resource_id == expect_id, 'expected %s, got %s' % (expect_id, physical_resource_id)
 
     # create the database again
-    response = cfn_dbuser_provider.create(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
 
     # delete non existing database
     event = Event('Delete', name + "-", physical_resource_id + '-')
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     # drop the login to the database
     event = Event('Delete', name, physical_resource_id, with_database=True)
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     try:
@@ -157,7 +158,7 @@ def test_create_database():
     # drop the database
     event = Event('Delete', name, physical_resource_id, with_database=True)
     event['ResourceProperties']['DeletionPolicy'] = 'Drop'
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
     with event.test_owner_connection() as connection:
@@ -170,14 +171,8 @@ def test_create_database():
 def test_invalid_delete():
     event = Event('Delete', "noop", 'postgresql:localhost:5432:postgres:%(name)s:%(name)s' % {'name': 'noop'})
     del event['ResourceProperties']['User']
-    response = cfn_dbuser_provider.delete(event, {})
+    response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
-
-
-def test_string_port():
-    event = Event('Create', "noop")
-    event['ResourceProperties']['Port'] = '9543'
-    PostgresDBUser(event)
 
 
 def test_password_parameter_use():
@@ -199,7 +194,7 @@ def test_password_parameter_use():
 
         ssm.put_parameter(Name=user_password_name, Value=user_password, Type='SecureString', Overwrite=True)
         ssm.put_parameter(Name=dbowner_password_name, Value=dbowner_password, Type='SecureString', Overwrite=True)
-        response = cfn_dbuser_provider.create(event, {})
+        response = handler(event, {})
 
         with event.test_user_connection(user_password) as connection:
             pass
@@ -207,7 +202,7 @@ def test_password_parameter_use():
         event['PhysicalResourceId'] = response['PhysicalResourceId']
 
         event['ResourceProperties']['DeletionPolicy'] = 'Drop'
-        cfn_dbuser_provider.delete(event, {})
+        response = handler(event, {})
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         raise
