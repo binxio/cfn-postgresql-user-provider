@@ -150,12 +150,7 @@
       ],
       "Properties": {
         "User": "kong",
-        "Password": {
-          "Fn::GetAtt": [
-            "KongPassword",
-            "Secret"
-          ]
-        },
+        "PasswordParameterName": "/postgres/kong/PGPASSWORD",
         "Database": {
           "User": "root",
           "Host": {
