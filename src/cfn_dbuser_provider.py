@@ -46,7 +46,7 @@ class PostgresDBUserProvider(ResourceProvider):
                 response = self.ssm.get_parameter(Name=name, WithDecryption=True)
                 self.user_password = response['Parameter']['Value']
             except ClientError as e:
-                raiseValueError('Could not obtain password using name %s, %s' % (name, e.message))
+                raise ValueError('Could not obtain password using name %s, %s' % (name, e.message))
         else:
             self.user_password = self.properties['Password']
 
