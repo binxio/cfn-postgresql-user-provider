@@ -63,7 +63,7 @@ Resources:
       Name: /postgres/kong/PGPASSWORD
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
   KongUser:
-    Type: Custom::PostgresDBUser
+    Type: Custom::PostgreSQLUser
     DependsOn:
       - Database
       - DBPassword

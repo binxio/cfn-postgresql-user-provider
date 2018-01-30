@@ -34,7 +34,7 @@ request_schema = {
         },
         "WithDatabase": {
             "type": "boolean",
-            "default": "false",
+            "default": true,
             "description": "create a database with the same name, or only a user"
         },
         "DeletionPolicy": {

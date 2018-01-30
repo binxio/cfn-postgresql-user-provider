@@ -6,8 +6,7 @@ removed the problem of distributing secrets.
 Although CloudFormation is very good in creating database servers, the mundane task of creating database schemas and users is left to nifty scripting, 
 after the environment has been deployed leaving us with the problem of distributing credentials to the applications. As we automated all the things, this is not a good thing. With this Custom CloudFormation Resource we put an end to that. Database schemas are defined as CloudFormation resources, just like their database servers.  
 
-The provider only creates users with which you can connect to a database server, or database owners with a database. This is intentional. Once a database principal is created all other SQL resources can be created 
-using normal SQL deployment utilities like Flyway.
+The provider only creates users with which you can connect to a database server, or database owners with a database. This is intentional. Once a database principal is created all other SQL resources can be created using normal SQL deployment utilities like Flyway.
 
 
 
@@ -32,8 +31,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
 
 ```
 
-After the deployment, the Postgres user 'kong' has been created together with a matching database 'kong'. The password for the root database user has been obtained by querying the Parameter `/postgres/root/PGPASSWORD`. 
-If you just want to create a user with which you can login to the PostgreSQL database server, without a database, specify `WithDatabase` as `false`. 
+After the deployment, the Postgres user 'kong' has been created together with a matching database 'kong'. The password for the root database user has been obtained by querying the Parameter `/postgres/root/PGPASSWORD`.  If you just want to create a user with which you can login to the PostgreSQL database server, without a database, specify `WithDatabase` as `false`. 
 
 The RetainPolicy by default is `Retain`. This means that the login to the database is disabled. If you specify drop, it will be dropped and your data will be lost.
 

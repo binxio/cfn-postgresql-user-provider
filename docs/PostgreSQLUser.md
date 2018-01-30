@@ -11,12 +11,8 @@ Properties:
   Name: String
   Password: String
   PasswordParameterName: String
-  WithDatabase:
-    - true
-    - false
-  DeletionPolicy:
-    - Retain
-    - Drop
+  WithDatabase: true/false
+  DeletionPolicy: Retain/Drop
   Database:
     Host: STRING
     Port: INTEGER
@@ -33,8 +29,8 @@ You can specify the following properties:
 - `Name` - of the user to create
 - `Password` - of the user 
 - `PasswordParameterName` - name of the parameter in the store containing the password of the user
-- `WithDatabase` - [true|false] if a database is to be created with the same name
-- `DeletionPolicy` - [Retain|Drop] when the resource is deleted
+- `WithDatabase` - if a database is to be created with the same name, defaults to true
+- `DeletionPolicy` - when the resource is deleted
 - `Database` - connection information of the database owner
 -- `Host` - the database server is listening on.
 -- `Port` - port the database server is listening on.

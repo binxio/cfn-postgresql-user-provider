@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation Custom DBUser Provider
+Description: CloudFormation Custom PostgreSQL User Provider
 Parameters:
   VPC:
     Type: AWS::EC2::VPC::Id
@@ -62,7 +62,7 @@ Resources:
     DependsOn:
       - LambdaRole
     Properties:
-      Description: CloudFormation Custom:PostgresDBUser implementation
+      Description: CloudFormation Custom:PostgreSQLUser implementation
       Code:
         S3Bucket: !If
           - UsePublicBucket
