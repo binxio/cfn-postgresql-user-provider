@@ -3,7 +3,7 @@ import uuid
 import psycopg2
 import boto3
 import logging
-from cfn_dbuser_provider import handler
+from postgresql_user_provider import handler
 
 logging.basicConfig(level=logging.INFO)
 

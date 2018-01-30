@@ -1,6 +1,6 @@
 include Makefile.mk
 
-NAME=cfn-dbuser-provider
+NAME=cfn-postgresql-user-provider
 
 AWS_REGION=eu-central-1
 S3_BUCKET=binxio-public-$(AWS_REGION)
@@ -36,7 +36,9 @@ do-build: local-build
 
 local-build: src/*.py venv requirements.txt
 	mkdir -p target/content 
-	docker run -v $$PWD/target/content:/venv python:2.7 pip install --quiet -t /venv $$(<requirements.txt)
+	cp requirements.txt target/content
+	docker run -v $(PWD)/target/content:/venv --workdir /venv python:2.7 pip install --quiet -t . -r requirements.txt
+	docker run -v $(PWD)/target/content:/venv --workdir /venv python:2.7 python -m compileall -q -f .
 	cp -r src/* target/content
 	find target/content -type d | xargs  chmod ugo+rx
 	find target/content -type f | xargs  chmod ugo+r 
@@ -58,7 +60,7 @@ test: venv
 	. ./venv/bin/activate && \
 	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \
-	nosetests ../tests/*.py 
+        PYTHONPATH=$(PWD)/src pytest ../tests/test*.py
 
 autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py

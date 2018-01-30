@@ -1,5 +1,5 @@
 # Custom::PostgresDBUser
-The `Custom::PostgresDBUser` resource creates 
+The `Custom::PostgresDBUser` resource creates a postgres database user with or without a database.
 
 
 ## Syntax
@@ -12,17 +12,17 @@ To declare this entity in your AWS CloudFormation template, use the following sy
         "Name": String,
         "Password": String,
         "PasswordParameterName": String,
-	"WithDatabase": Bool,
-	"DeletionPolicy": STRING,
+    	"WithDatabase": Bool,
+    	"DeletionPolicy": STRING,
 
         "Database": {
-		"Host": STRING,
-		"Port": INTEGER,
-		"Database": STRING,
-		"User": STRING,
-		"Password": STRING,
-		"PasswordParameterName": STRING
-	}
+            "Host": STRING,
+            "Port": INTEGER,
+            "Database": STRING,
+            "User": STRING,
+            "Password": STRING,
+            "PasswordParameterName": STRING
+        }
 
         "ServiceToken": STRING
   }
@@ -33,7 +33,7 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 You can specify the following properties:
 
 - `Name` - of the user to create
-- `Password` - of the user
+- `Password` - of the user 
 - `PasswordParameterName` - name of the parameter in the store containing the password of the user
 - `WithDatabase` - [true|false] if a database is to be created with the same name
 - `DeletionPolicy` - [Retain|Drop] when the resource is deleted
@@ -42,9 +42,10 @@ You can specify the following properties:
 -- `Port` - port the database server is listening on.
 -- `Database` - name to connect to.
 -- `User` - name of the database owner.
--- `Password` - to identify the user with.
+-- `Password` - to identify the user with. 
 -- `PasswordParameterName` - name of the parameter in the store containing the password of the user
 
+Either `Password` or `PasswordParameterName` is required.
 
 ## Return values
 There are no return values from this resources.

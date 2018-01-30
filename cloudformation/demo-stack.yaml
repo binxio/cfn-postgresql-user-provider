@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the RDS DB Instance
+      SubnetIds: !Ref 'Subnets'
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 10
+      DBInstanceClass: db.t2.micro
+      Engine: Postgres
+      EngineVersion: 9.6.1
+      VPCSecurityGroups:
+        - !Ref 'DatabaseSecurityGroup'
+      DBName: root
+      MasterUsername: root
+      MasterUserPassword: !GetAtt 'DBPassword.Secret'
+      MultiAZ: 'false'
+      Port: '5432'
+      PubliclyAccessible: 'false'
+      DBSubnetGroupName: !Ref 'DBSubnetGroup'
+      DBParameterGroupName: !Ref 'DatabaseParameterGroup'
+    DeletionPolicy: Snapshot
+  DatabaseParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Parameters for PostgreSQL
+      Family: postgres9.6
+      Parameters: {}
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: postgresql access
+      VpcId: !Ref 'VPC'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '5432'
+          ToPort: '5432'
+          SourceSecurityGroupId: !Ref 'SecurityGroup'
+      SecurityGroupEgress: []
+      Tags:
+        - Key: Name
+          Value: !Sub 'postgres.${AWS::StackName}'
+  DBPassword:
+    Type: Custom::Secret
+    Properties:
+      Name: /postgres/root/PGPASSWORD
+      Alphabet: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+      ReturnSecret: true
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
+  KongPassword:
+    Type: Custom::Secret
+    Properties:
+      Name: /postgres/kong/PGPASSWORD
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
+  KongUser:
+    Type: Custom::PostgresDBUser
+    DependsOn:
+      - Database
+      - DBPassword
+      - KongPassword
+    Properties:
+      User: kong
+      PasswordParameterName: /postgres/kong/PGPASSWORD
+      Database:
+        User: root
+        Host: !GetAtt 'Database.Endpoint.Address'
+        Port: !GetAtt 'Database.Endpoint.Port'
+        DBName: root
+        Password: !GetAtt 'DBPassword.Secret'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'

@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Custom DBUser Provider
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+  LambdaS3Bucket:
+    Type: String
+    Default: ''
+  CFNProviderZipFileName:
+    Type: String
+    Default: lambdas/cfn-postgresql-user-provider-latest.zip
+Conditions:
+  UsePublicBucket: !Equals
+    - !Ref 'LambdaS3Bucket'
+    - ''
+Resources:
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn:
+      - LambdaRole
+    Properties:
+      PolicyName: CFNCustomDBUserProviderPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - kms:Decrypt
+            Resource:
+              - '*'
+          - Action:
+              - logs:*
+            Resource: arn:aws:logs:*:*:*
+            Effect: Allow
+      Roles:
+        - !Ref 'LambdaRole'
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+  CFNDBUserProvider:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaRole
+    Properties:
+      Description: CloudFormation Custom:PostgresDBUser implementation
+      Code:
+        S3Bucket: !If
+          - UsePublicBucket
+          - !Sub 'binxio-public-${AWS::Region}'
+          - !Ref 'LambdaS3Bucket'
+        S3Key: !Ref 'CFNProviderZipFileName'
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref 'SecurityGroup'
+        SubnetIds: !Ref 'Subnets'
+      FunctionName: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'
+      Handler: cfn_dbuser_provider.handler
+      MemorySize: 128
+      Role: !GetAtt 'LambdaRole.Arn'
+      Runtime: python2.7
