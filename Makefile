@@ -56,7 +56,9 @@ clean:
 	rm -rf src/*.pyc tests/*.pyc
 
 test: venv
-	jq . cloudformation/*.json > /dev/null
+	for i in $$PWD/cloudformation/*; do \
+		aws cloudformation validate-template --template-body file://$$i > /dev/null || exit 1; \
+	done
 	. ./venv/bin/activate && \
 	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \
