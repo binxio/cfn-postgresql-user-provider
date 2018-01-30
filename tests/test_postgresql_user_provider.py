@@ -16,7 +16,7 @@ class Event(dict):
             'ResponseURL': 'https://httpbin.org/put',
             'StackId': 'arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid',
             'RequestId': 'request-%s' % str(uuid.uuid4()),
-            'ResourceType': 'Custom::PostgresDBUser',
+            'ResourceType': 'Custom::PostgreSQLUser',
             'LogicalResourceId': 'Whatever',
             'ResourceProperties': {
                 'User': user, 'Password': 'password', 'WithDatabase': with_database,

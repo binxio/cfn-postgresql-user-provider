@@ -82,10 +82,10 @@ request_schema = {
 }
 
 
-class PostgresDBUserProvider(ResourceProvider):
+class PostgreSQLUser(ResourceProvider):
 
     def __init__(self):
-        super(PostgresDBUserProvider, self).__init__()
+        super(PostgreSQLUser, self).__init__()
         self.ssm = boto3.client('ssm')
         self.connection = None
 
@@ -287,7 +287,7 @@ class PostgresDBUserProvider(ResourceProvider):
             self.close()
 
 
-provider = PostgresDBUserProvider()
+provider = PostgreSQLUser()
 
 
 def handler(request, context):

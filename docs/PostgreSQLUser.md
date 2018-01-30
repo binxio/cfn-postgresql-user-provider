@@ -5,28 +5,26 @@ The `Custom::PostgresDBUser` resource creates a postgres database user with or w
 ## Syntax
 To declare this entity in your AWS CloudFormation template, use the following syntax:
 
-```json
-{
-  "Type" : "Custom::PostgresDBUser",
-  "Properties" : {
-        "Name": String,
-        "Password": String,
-        "PasswordParameterName": String,
-    	"WithDatabase": Bool,
-    	"DeletionPolicy": STRING,
-
-        "Database": {
-            "Host": STRING,
-            "Port": INTEGER,
-            "Database": STRING,
-            "User": STRING,
-            "Password": STRING,
-            "PasswordParameterName": STRING
-        }
-
-        "ServiceToken": STRING
-  }
-}
+```yaml
+Type: Custom::PostgreSQLUser
+Properties:
+  Name: String
+  Password: String
+  PasswordParameterName: String
+  WithDatabase:
+    - true
+    - false
+  DeletionPolicy:
+    - Retain
+    - Drop
+  Database:
+    Host: STRING
+    Port: INTEGER
+    Database: STRING
+    User: STRING
+    Password: STRING
+    PasswordParameterName: STRING
+  ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-dbuser-provider-vpc-${AppVPC}'
 ```
 
 ## Properties
