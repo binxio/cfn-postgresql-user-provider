@@ -53,14 +53,14 @@ Resources:
   DBPassword:
     Type: Custom::Secret
     Properties:
-      Name: /postgres/root/PGPASSWORD
+      Name: !Sub '/${AWS::StackName}/postgres/root/PGPASSWORD'
       Alphabet: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
       ReturnSecret: true
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
   KongPassword:
     Type: Custom::Secret
     Properties:
-      Name: /postgres/kong/PGPASSWORD
+      Name: !Sub '/${AWS::StackName}/postgres/kong/PGPASSWORD'
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
   KongUser:
     Type: Custom::PostgreSQLUser
@@ -70,11 +70,11 @@ Resources:
       - KongPassword
     Properties:
       User: kong
-      PasswordParameterName: /postgres/kong/PGPASSWORD
+      PasswordParameterName: !Sub '/${AWS::StackName}/postgres/kong/PGPASSWORD'
       Database:
         User: root
         Host: !GetAtt 'Database.Endpoint.Address'
         Port: !GetAtt 'Database.Endpoint.Port'
         DBName: root
-        Password: !GetAtt 'DBPassword.Secret'
+        Password: !Sub '/${AWS::StackName}/postgres/root/PGPASSWORD'
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'

@@ -10,9 +10,6 @@ Parameters:
   LambdaS3Bucket:
     Type: String
     Default: ''
-  CFNProviderZipFileName:
-    Type: String
-    Default: lambdas/cfn-postgresql-user-provider-latest.zip
 Conditions:
   UsePublicBucket: !Equals
     - !Ref 'LambdaS3Bucket'
@@ -68,7 +65,7 @@ Resources:
           - UsePublicBucket
           - !Sub 'binxio-public-${AWS::Region}'
           - !Ref 'LambdaS3Bucket'
-        S3Key: !Ref 'CFNProviderZipFileName'
+        S3Key: lambdas/cfn-postgresql-user-provider-0.5.1.zip
       VpcConfig:
         SecurityGroupIds:
           - !Ref 'SecurityGroup'
