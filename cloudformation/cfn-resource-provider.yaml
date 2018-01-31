@@ -71,7 +71,7 @@ Resources:
           - !Ref 'SecurityGroup'
         SubnetIds: !Ref 'Subnets'
       FunctionName: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'
-      Handler: cfn_dbuser_provider.handler
+      Handler: postgresql_user_provider.handler
       MemorySize: 128
       Role: !GetAtt 'LambdaRole.Arn'
       Runtime: python2.7
