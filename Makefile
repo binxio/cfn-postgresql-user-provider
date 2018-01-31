@@ -84,7 +84,7 @@ deploy-provider:
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/cfn-resource-provider.json  \
+		--template-body file://cloudformation/cfn-resource-provider.yaml  \
 		--parameters ParameterKey=VPC,ParameterValue=$$VPC_ID \
 			     ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 			     ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
@@ -109,7 +109,7 @@ demo:
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
                 echo "Either there is no default VPC in your account, no two subnets or no default security group available in the default VPC" && exit 1 ; \
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
-		--template-body file://cloudformation/demo-stack.json  \
+		--template-body file://cloudformation/demo-stack.yaml  \
 		$$CFN_TIMEOUT \
 		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
 				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
