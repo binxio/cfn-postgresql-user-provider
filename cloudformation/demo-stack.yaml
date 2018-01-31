@@ -76,5 +76,5 @@ Resources:
         Host: !GetAtt 'Database.Endpoint.Address'
         Port: !GetAtt 'Database.Endpoint.Port'
         DBName: root
-        Password: !Sub '/${AWS::StackName}/postgres/root/PGPASSWORD'
+        PasswordParameterName: !Sub '/${AWS::StackName}/postgres/root/PGPASSWORD'
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'
