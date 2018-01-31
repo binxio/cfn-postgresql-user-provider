@@ -1,6 +1,6 @@
 include Makefile.mk
 
-NAME=cfn-dbuser-provider
+NAME=cfn-postgresql-user-provider
 
 AWS_REGION=eu-central-1
 S3_BUCKET=binxio-public-$(AWS_REGION)
@@ -36,7 +36,9 @@ do-build: local-build
 
 local-build: src/*.py venv requirements.txt
 	mkdir -p target/content 
-	docker run -v $$PWD/target/content:/venv python:2.7 pip install --quiet -t /venv $$(<requirements.txt)
+	cp requirements.txt target/content
+	docker run -v $(PWD)/target/content:/venv --workdir /venv python:2.7 pip install --quiet -t . -r requirements.txt
+	docker run -v $(PWD)/target/content:/venv --workdir /venv python:2.7 python -m compileall -q -f .
 	cp -r src/* target/content
 	find target/content -type d | xargs  chmod ugo+rx
 	find target/content -type f | xargs  chmod ugo+r 
@@ -54,11 +56,13 @@ clean:
 	rm -rf src/*.pyc tests/*.pyc
 
 test: venv
-	jq . cloudformation/*.json > /dev/null
+	for i in $$PWD/cloudformation/*; do \
+		aws cloudformation validate-template --template-body file://$$i > /dev/null || exit 1; \
+	done
 	. ./venv/bin/activate && \
 	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \
-	nosetests ../tests/*.py 
+        PYTHONPATH=$(PWD)/src pytest ../tests/test*.py
 
 autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py
@@ -80,7 +84,7 @@ deploy-provider:
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/cfn-resource-provider.json  \
+		--template-body file://cloudformation/cfn-resource-provider.yaml  \
 		--parameters ParameterKey=VPC,ParameterValue=$$VPC_ID \
 			     ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
 			     ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
@@ -105,7 +109,7 @@ demo:
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
                 echo "Either there is no default VPC in your account, no two subnets or no default security group available in the default VPC" && exit 1 ; \
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
-		--template-body file://cloudformation/demo-stack.json  \
+		--template-body file://cloudformation/demo-stack.yaml  \
 		$$CFN_TIMEOUT \
 		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
 				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
