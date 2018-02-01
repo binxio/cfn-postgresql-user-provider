@@ -3,6 +3,7 @@ include Makefile.mk
 NAME=cfn-postgresql-user-provider
 
 AWS_REGION=eu-central-1
+ALL_REGIONS=$(shell printf "import boto3\nprint '\\\n'.join(map(lambda r: r['RegionName'], boto3.client('ec2').describe_regions()['Regions']))\n" | python | grep -v '^$(AWS_REGION)$$')
 S3_BUCKET=binxio-public-$(AWS_REGION)
 
 help:
