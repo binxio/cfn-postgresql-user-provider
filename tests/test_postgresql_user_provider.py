@@ -1,9 +1,9 @@
-import sys
+import sys, json
 import uuid
 import psycopg2
 import boto3
 import logging
-from postgresql_user_provider import handler
+from postgresql_user_provider import handler, request_schema
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,11 +42,33 @@ class Event(dict):
                 'user': p['User'], 'password': password}
         return psycopg2.connect(**args)
 
+def test_invalid_user_name():
+    event = Event('Create', 'a-user', with_database=False)
+    response = handler(event, {})
+    assert response['Status'] == 'FAILED', response['Reason']
+
+
+def test_password_with_special_chars():
+    name = 'u%s' % str(uuid.uuid4()).replace('-', '')
+    event = Event('Create', name, with_database=False)
+    event['ResourceProperties']['Password'] =  "abd'\efg~"
+    response = handler(event, {})
+    assert response['Status'] == 'SUCCESS', response['Reason']
+
+    with event.test_user_connection() as connection:
+        pass
+
+    assert 'PhysicalResourceId' in response
+    physical_resource_id = response['PhysicalResourceId']
+
+    # delete the created user
+    event = Event('Delete', name, physical_resource_id)
+    response = handler(event, {})
+    assert response['Status'] == 'SUCCESS', response['Reason']
 
 def test_create_user():
     # create a test user
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
-    print name
     event = Event('Create', name, with_database=False)
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']

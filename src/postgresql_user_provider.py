@@ -11,25 +11,23 @@ request_schema = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
     "oneOf": [
-        {"required": ["Connection", "User", "Password"]},
-        {"required": ["Connection", "User", "PasswordParameterName"]}
+        {"required": ["Database", "User", "Password"]},
+        {"required": ["Database", "User", "PasswordParameterName"]}
     ],
     "properties": {
-        "Database": {"$ref": "#/definitions/connection"
-                     },
+        "Database": {"$ref": "#/definitions/connection"},
         "User": {
             "type": "string",
-            "pattern": "^[A-Za-z][A-Za-z0-9_\$]*$",
+            "pattern": "^[_A-Za-z][A-Za-z0-9_$]*$",
             "description": "the user to create"
         },
         "Password": {
             "type": "string",
-            "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
             "description": "the password for the user"
         },
         "PasswordParameterName": {
             "type": "string",
-            "minlength": 1,
+            "minLength": 1,
             "description": "the name of the password in the Parameter Store."
         },
         "WithDatabase": {
@@ -88,6 +86,7 @@ class PostgreSQLUser(ResourceProvider):
         super(PostgreSQLUser, self).__init__()
         self.ssm = boto3.client('ssm')
         self.connection = None
+        self.request_schema = request_schema
 
     def convert_property_types(self):
         self.heuristic_convert_property_types(self.properties)

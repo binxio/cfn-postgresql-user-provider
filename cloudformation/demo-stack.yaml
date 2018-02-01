@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   VPC:
@@ -62,6 +63,11 @@ Resources:
     Properties:
       Name: !Sub '/${AWS::StackName}/postgres/kong/PGPASSWORD'
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
+  KongUserPassword:
+    Type: Custom::Secret
+    Properties:
+      Name: !Sub '/${AWS::StackName}/postgres/kong-user/PGPASSWORD'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
   KongUser:
     Type: Custom::PostgreSQLUser
     DependsOn:
@@ -76,5 +82,22 @@ Resources:
         Host: !GetAtt 'Database.Endpoint.Address'
         Port: !GetAtt 'Database.Endpoint.Port'
         DBName: root
-        PasswordParameterName: !Sub '/${AWS::StackName}/postgres/root/PGPASSWORD'
+        Password: !GetAtt 'DBPassword.Secret'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'
+  KongReaderUser:
+    Type: Custom::PostgreSQLUser
+    DependsOn:
+      - Database
+      - DBPassword
+      - KongUserPassword
+    Properties:
+      User: kongreader
+      WithDatabase: false
+      PasswordParameterName: !Sub '/${AWS::StackName}/postgres/kong-user/PGPASSWORD'
+      Database:
+        User: root
+        Host: !GetAtt 'Database.Endpoint.Address'
+        Port: !GetAtt 'Database.Endpoint.Port'
+        DBName: root
+        Password: !GetAtt 'DBPassword.Secret'
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-${VPC}'
