@@ -29,6 +29,23 @@ deploy:
 	aws s3api --region $(AWS_REGION) \
 		put-object-acl --bucket $(S3_BUCKET) \
 		--acl public-read --key lambdas/$(NAME)-latest.zip 
+	@for REGION in $(ALL_REGIONS); do \
+		echo "copying to region $$REGION.." ; \
+		aws s3 --region $(AWS_REGION) \
+			cp  \
+			s3://binxio-public-$(AWS_REGION)/lambdas/$(NAME)-$(VERSION).zip \
+			s3://binxio-public-$$REGION/lambdas/$(NAME)-$(VERSION).zip; \
+		aws s3 --region $$REGION \
+			cp  \
+			s3://binxio-public-$$REGION/lambdas/$(NAME)-$(VERSION).zip \
+			s3://binxio-public-$$REGION/lambdas/$(NAME)-latest.zip; \
+		aws s3api --region $$REGION \
+			put-object-acl --bucket binxio-public-$$REGION \
+			--acl public-read --key lambdas/$(NAME)-$(VERSION).zip; \
+		aws s3api --region $$REGION \
+			put-object-acl --bucket binxio-public-$$REGION \
+			--acl public-read --key lambdas/$(NAME)-latest.zip; \
+	done
 
 do-push: deploy
 
