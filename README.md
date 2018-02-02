@@ -23,7 +23,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
         Database: root
         User: root
         PasswordParameterName: /postgres/root/PGPASSWORD                # put your root password is in the parameter store
-      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxiokong-io-cfn-dbuser-provider-vpc-${AppVPC}'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxioio-cfn-postgresql-user-provider-vpc-${AppVPC}'
 
    KongPassword:
     Type: Custom::Secret
@@ -32,7 +32,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
       KeyAlias: alias/aws/ssm
       Alphabet: _&`'~-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
       Length: 30
-      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxiokong-io-cfn-secret-provider'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
 ```
 
 After the deployment, the Postgres user 'kong' has been created together with a matching database 'kong'. The password for the root database user has been obtained by querying the Parameter `/postgres/root/PGPASSWORD`.  If you just want to create a user with which you can login to the PostgreSQL database server, without a database, specify `WithDatabase` as `false`. 
