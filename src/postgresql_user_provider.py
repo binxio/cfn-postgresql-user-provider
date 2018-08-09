@@ -196,6 +196,8 @@ class PostgreSQLUser(ResourceProvider):
         if self.deletion_policy == 'Drop':
             log.info('drop database of %s', self.user)
             with self.connection.cursor() as cursor:
+                cursor.execute('GRANT %s TO %s', [
+                    AsIs(self.user), AsIs(self.dbowner)])
                 cursor.execute('DROP DATABASE %s', [AsIs(self.user)])
         else:
             log.info('not dropping database %s', self.user)
