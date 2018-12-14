@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/cfn-dbuser-provider.iml" filepath="$PROJECT_DIR$/.idea/cfn-dbuser-provider.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/cfn-postgresql-user-provider.iml" filepath="$PROJECT_DIR$/.idea/cfn-postgresql-user-provider.iml" />
     </modules>
   </component>
 </project>

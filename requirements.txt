@@ -1,5 +1,5 @@
 boto3
-psycopg2
+psycopg2-binary
 requests
 jsonschema
-cfn_resource_provider>==0.10.4
+cfn_resource_provider
