@@ -74,4 +74,4 @@ Resources:
       Handler: postgresql_user_provider.handler
       MemorySize: 128
       Role: !GetAtt 'LambdaRole.Arn'
-      Runtime: python3.6
+      Runtime: python3.7
