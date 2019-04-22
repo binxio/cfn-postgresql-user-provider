@@ -96,7 +96,7 @@ class PostgreSQLUser(ResourceProvider):
             response = self.ssm.get_parameter(Name=name, WithDecryption=True)
             return response['Parameter']['Value']
         except ClientError as e:
-            raise ValueError('Could not obtain password using name {}, {}'.format(name, e.message))
+            raise ValueError('Could not obtain password using name {}, {}'.format(name, e))
 
     @property
     def user_password(self):
@@ -163,7 +163,7 @@ class PostgreSQLUser(ResourceProvider):
             self.connection = psycopg2.connect(**self.connect_info)
             self.connection.set_session(autocommit=True)
         except Exception as e:
-            raise ValueError('Failed to connect, %s' % e.message)
+            raise ValueError('Failed to connect, %s' % e)
 
     def close(self):
         if self.connection:
@@ -259,7 +259,7 @@ class PostgreSQLUser(ResourceProvider):
             self.physical_resource_id = self.url
         except Exception as e:
             self.physical_resource_id = 'could-not-create'
-            self.fail('Failed to create user, %s' % e.message)
+            self.fail('Failed to create user, %s' % e)
         finally:
             self.close()
 
@@ -271,7 +271,7 @@ class PostgreSQLUser(ResourceProvider):
             else:
                 self.fail('Only the password of %s can be updated' % self.user)
         except Exception as e:
-            self.fail('Failed to update the user, %s' % e.message)
+            self.fail('Failed to update the user, %s' % e)
         finally:
             self.close()
 
@@ -283,7 +283,7 @@ class PostgreSQLUser(ResourceProvider):
             self.connect()
             self.drop()
         except Exception as e:
-            return self.fail(e.message)
+            return self.fail(str(e))
         finally:
             self.close()
 
