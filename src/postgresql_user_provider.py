@@ -1,11 +1,13 @@
 import boto3
 import logging
+import os
 import psycopg2
 from botocore.exceptions import ClientError
 from psycopg2.extensions import AsIs
 from cfn_resource_provider import ResourceProvider
 
 log = logging.getLogger()
+log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 request_schema = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -88,6 +90,9 @@ class PostgreSQLUser(ResourceProvider):
         self.connection = None
         self.request_schema = request_schema
 
+    def is_valid_request(self):
+        return super(PostgreSQLUser, self).is_valid_request()
+
     def convert_property_types(self):
         self.heuristic_convert_property_types(self.properties)
 
@@ -144,7 +149,8 @@ class PostgreSQLUser(ResourceProvider):
     @property
     def connect_info(self):
         return {'host': self.host, 'port': self.port, 'dbname': self.dbname,
-                'user': self.dbowner, 'password': self.dbowner_password}
+                'user': self.dbowner, 'password': self.dbowner_password,
+                'connect_timeout': 20}
 
     @property
     def allow_update(self):
