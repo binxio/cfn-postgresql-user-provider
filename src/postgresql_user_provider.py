@@ -150,7 +150,7 @@ class PostgreSQLUser(ResourceProvider):
     def connect_info(self):
         return {'host': self.host, 'port': self.port, 'dbname': self.dbname,
                 'user': self.dbowner, 'password': self.dbowner_password,
-                'connect_timeout': 20}
+                'connect_timeout': 60}
 
     @property
     def allow_update(self):
@@ -169,6 +169,7 @@ class PostgreSQLUser(ResourceProvider):
             self.connection = psycopg2.connect(**self.connect_info)
             self.connection.set_session(autocommit=True)
         except Exception as e:
+            log.error('Failed to connect to database - check its running and reachable')
             raise ValueError('Failed to connect, %s' % e)
 
     def close(self):
