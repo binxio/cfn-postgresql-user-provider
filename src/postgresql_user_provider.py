@@ -1,11 +1,13 @@
 import boto3
 import logging
+import os
 import psycopg2
 from botocore.exceptions import ClientError
 from psycopg2.extensions import AsIs
 from cfn_resource_provider import ResourceProvider
 
 log = logging.getLogger()
+log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 request_schema = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -46,12 +48,18 @@ request_schema = {
             "type": "object",
             "oneOf": [
                 {"required": ["DBName", "Host", "Port", "User", "Password"]},
-                {"required": ["DBName", "Host", "Port", "User", "PasswordParameterName"]}
+                {"required": ["DBName", "Host", "Port", "User", "PasswordParameterName"]},
+                {"required": ["DBName", "Host", "Port", "UserParameterName", "PasswordParameterName"]},
+                {"required": ["DBNameParameterName", "Host", "Port", "UserParameterName", "PasswordParameterName"]},
             ],
             "properties": {
                 "DBName": {
                     "type": "string",
                     "description": "the name of the database"
+                },
+                "DBNameParameterName": {
+                    "type": "string",
+                    "description": "the name of the database name in the Parameter Store"
                 },
                 "Host": {
                     "type": "string",
@@ -65,6 +73,10 @@ request_schema = {
                 "User": {
                     "type": "string",
                     "description": "the username of the database owner"
+                },
+                "UserParameterName": {
+                    "type": "string",
+                    "description": "the name of the database owner username in the Parameter Store"
                 },
                 "Password": {
                     "type": "string",
@@ -88,22 +100,25 @@ class PostgreSQLUser(ResourceProvider):
         self.connection = None
         self.request_schema = request_schema
 
+    def is_valid_request(self):
+        return super(PostgreSQLUser, self).is_valid_request()
+
     def convert_property_types(self):
         self.heuristic_convert_property_types(self.properties)
 
-    def get_password(self, name):
+    def get_ssm_parameter(self, name):
         try:
             response = self.ssm.get_parameter(Name=name, WithDecryption=True)
             return response['Parameter']['Value']
         except ClientError as e:
-            raise ValueError('Could not obtain password using name {}, {}'.format(name, e))
+            raise ValueError('Could not obtain value using name {}, {}'.format(name, e))
 
     @property
     def user_password(self):
         if 'Password' in self.properties:
             return self.get('Password')
         else:
-            return self.get_password(self.get('PasswordParameterName'))
+            return self.get_ssm_parameter(self.get('PasswordParameterName'))
 
     @property
     def dbowner_password(self):
@@ -111,7 +126,7 @@ class PostgreSQLUser(ResourceProvider):
         if 'Password' in db:
             return db.get('Password')
         else:
-            return self.get_password(db['PasswordParameterName'])
+            return self.get_ssm_parameter(db['PasswordParameterName'])
 
     @property
     def user(self):
@@ -127,11 +142,19 @@ class PostgreSQLUser(ResourceProvider):
 
     @property
     def dbname(self):
-        return self.get('Database', {}).get('DBName', None)
+        db = self.get('Database')
+        if 'DBName' in db:
+            return db.get('DBName')
+        else:
+            return self.get_ssm_parameter(db['DBNameParameterName'])
 
     @property
     def dbowner(self):
-        return self.get('Database', {}).get('User', None)
+        db = self.get('Database')
+        if 'User' in db:
+            return db.get('User')
+        else:
+            return self.get_ssm_parameter(db['UserParameterName'])
 
     @property
     def with_database(self):
@@ -144,7 +167,8 @@ class PostgreSQLUser(ResourceProvider):
     @property
     def connect_info(self):
         return {'host': self.host, 'port': self.port, 'dbname': self.dbname,
-                'user': self.dbowner, 'password': self.dbowner_password}
+                'user': self.dbowner, 'password': self.dbowner_password,
+                'connect_timeout': 60}
 
     @property
     def allow_update(self):
@@ -163,6 +187,7 @@ class PostgreSQLUser(ResourceProvider):
             self.connection = psycopg2.connect(**self.connect_info)
             self.connection.set_session(autocommit=True)
         except Exception as e:
+            log.error('Failed to connect to database - check its running and reachable')
             raise ValueError('Failed to connect, %s' % e)
 
     def close(self):
