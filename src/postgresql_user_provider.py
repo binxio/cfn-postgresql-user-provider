@@ -48,12 +48,18 @@ request_schema = {
             "type": "object",
             "oneOf": [
                 {"required": ["DBName", "Host", "Port", "User", "Password"]},
-                {"required": ["DBName", "Host", "Port", "User", "PasswordParameterName"]}
+                {"required": ["DBName", "Host", "Port", "User", "PasswordParameterName"]},
+                {"required": ["DBName", "Host", "Port", "UserParameterName", "PasswordParameterName"]},
+                {"required": ["DBNameParameterName", "Host", "Port", "UserParameterName", "PasswordParameterName"]},
             ],
             "properties": {
                 "DBName": {
                     "type": "string",
                     "description": "the name of the database"
+                },
+                "DBNameParameterName": {
+                    "type": "string",
+                    "description": "the name of the database name in the Parameter Store"
                 },
                 "Host": {
                     "type": "string",
@@ -67,6 +73,10 @@ request_schema = {
                 "User": {
                     "type": "string",
                     "description": "the username of the database owner"
+                },
+                "UserParameterName": {
+                    "type": "string",
+                    "description": "the name of the database owner username in the Parameter Store"
                 },
                 "Password": {
                     "type": "string",
@@ -96,19 +106,19 @@ class PostgreSQLUser(ResourceProvider):
     def convert_property_types(self):
         self.heuristic_convert_property_types(self.properties)
 
-    def get_password(self, name):
+    def get_ssm_parameter(self, name):
         try:
             response = self.ssm.get_parameter(Name=name, WithDecryption=True)
             return response['Parameter']['Value']
         except ClientError as e:
-            raise ValueError('Could not obtain password using name {}, {}'.format(name, e))
+            raise ValueError('Could not obtain value using name {}, {}'.format(name, e))
 
     @property
     def user_password(self):
         if 'Password' in self.properties:
             return self.get('Password')
         else:
-            return self.get_password(self.get('PasswordParameterName'))
+            return self.get_ssm_parameter(self.get('PasswordParameterName'))
 
     @property
     def dbowner_password(self):
@@ -116,7 +126,7 @@ class PostgreSQLUser(ResourceProvider):
         if 'Password' in db:
             return db.get('Password')
         else:
-            return self.get_password(db['PasswordParameterName'])
+            return self.get_ssm_parameter(db['PasswordParameterName'])
 
     @property
     def user(self):
@@ -132,11 +142,19 @@ class PostgreSQLUser(ResourceProvider):
 
     @property
     def dbname(self):
-        return self.get('Database', {}).get('DBName', None)
+        db = self.get('Database')
+        if 'DBName' in db:
+            return db.get('DBName')
+        else:
+            return self.get_ssm_parameter(db['DBNameParameterName'])
 
     @property
     def dbowner(self):
-        return self.get('Database', {}).get('User', None)
+        db = self.get('Database')
+        if 'User' in db:
+            return db.get('User')
+        else:
+            return self.get_ssm_parameter(db['UserParameterName'])
 
     @property
     def with_database(self):
