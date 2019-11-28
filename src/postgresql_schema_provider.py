@@ -8,9 +8,7 @@ log = logging.getLogger()
 request_schema = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
-    "oneOf": [
-        {"required": ["Database", "Schema", "Owner"]},
-    ],
+    "oneOf": [{"required": ["Database", "Schema", "Owner"]}],
     "properties": {
         "Database": {"$ref": "#/definitions/connection"},
         "Schema": {
@@ -69,10 +67,14 @@ request_schema = {
     },
 }
 
+
 class PostgreSQLSchema(PostgreSQLUser):
     def __init__(self):
         super(PostgreSQLSchema, self).__init__()
         self.request_schema = request_schema
+
+    def is_supported_resource_type(self):
+        return self.resource_type == "Custom::PostgreSQLSchema"
 
     @property
     def schema(self):
@@ -97,6 +99,8 @@ class PostgreSQLSchema(PostgreSQLUser):
     def create_schema(self):
         log.info("create schema %s ", self.schema)
         with self.connection.cursor() as cursor:
+            if self.owner != self.dbowner:
+                cursor.execute("GRANT %s to %s", [AsIs(self.owner), AsIs(self.dbowner)])
             cursor.execute(
                 "CREATE SCHEMA %s AUTHORIZATION %s",
                 [AsIs(self.schema), AsIs(self.owner)],
@@ -113,7 +117,8 @@ class PostgreSQLSchema(PostgreSQLUser):
             log.info("alter schema %s owner to %s", self.old_schema, self.owner)
             with self.connection.cursor() as cursor:
                 cursor.execute(
-                    "ALTER SCHEMA %s OWNER TO %s", [AsIs(self.old_schema), AsIs(self.owner)]
+                    "ALTER SCHEMA %s OWNER TO %s",
+                    [AsIs(self.old_schema), AsIs(self.owner)],
                 )
 
         if self.schema != self.old_schema:
