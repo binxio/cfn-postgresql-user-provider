@@ -291,6 +291,9 @@ class PostgreSQLUser(ResourceProvider):
         finally:
             self.close()
 
+    def is_supported_resource_type(self):
+        return self.resource_type in  ['Custom::PostgreSQLUser', 'Custom::PostgresDBUser']
+
 
 provider = PostgreSQLUser()
 
