@@ -1,5 +1,5 @@
 # Custom::PostgreSQLSchema
-The `Custom::PostgreSQLSchema` resource creates a postgres schema and assign an owner
+The `Custom::PostgreSQLSchema` resource creates a postgres schema and assigns an owner
 
 
 ## Syntax
