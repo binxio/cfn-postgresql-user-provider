@@ -16,6 +16,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
       User: kong
       PasswordParameterName: /postgres/kong/PGPASSWORD
       WithDatabase: true
+      WithPublicSchema: false
       DeletionPolicy: Retain 
       Database:                   # the server to create the new user or database in
         Host: postgres
@@ -30,12 +31,12 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
     Properties:
       Name: /postgres/kong/PGPASSWORD
       KeyAlias: alias/aws/ssm
-      Alphabet: _&`'~-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+      Alphabet: _`'~-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
       Length: 30
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-secret-provider'
 ```
 
-After the deployment, the Postgres user 'kong' has been created together with a matching database 'kong'. The password for the root database user has been obtained by querying the Parameter `/postgres/root/PGPASSWORD`.  If you just want to create a user with which you can login to the PostgreSQL database server, without a database, specify `WithDatabase` as `false`. 
+After the deployment, the Postgres user 'kong' has been created together with a matching database 'kong'. The password for the root database user has been obtained by querying the Parameter `/postgres/root/PGPASSWORD`.  If you just want to create a user with which you can login to the PostgreSQL database server, without a database, specify `WithDatabase` as `false`.  If `WithPublicSchema` is set to false, permission to create in the schema `public` is revoked.
 
 The RetainPolicy by default is `Retain`. This means that the login to the database is disabled. If you specify drop, it will be dropped and your data will be lost.
 

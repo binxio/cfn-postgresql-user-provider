@@ -1,17 +1,15 @@
-# Custom::PostgreSQLUser
-The `Custom::PostgresSQLUser` resource creates a postgres database user with or without a database.
+# Custom::PostgreSQLSchema
+The `Custom::PostgreSQLSchema` resource creates a postgres schema and assign an owner
 
 
 ## Syntax
 To declare this entity in your AWS CloudFormation template, use the following syntax:
 
 ```yaml
-Type: Custom::PostgreSQLUser
+Type: Custom::PostgreSQLSchema
 Properties:
-  Name: String
-  Password: String
-  PasswordParameterName: String
-  WithDatabase: true/false
+  Schema: String
+  OWner: String
   DeletionPolicy: Retain/Drop
   Database:
     Host: STRING
@@ -26,10 +24,8 @@ Properties:
 ## Properties
 You can specify the following properties:
 
-- `Name` - of the user to create
-- `Password` - of the user 
-- `PasswordParameterName` - name of the parameter in the store containing the password of the user
-- `WithDatabase` - if a database is to be created with the same name, defaults to true
+- `Schema` - to create
+- `Owner` - of the schema
 - `DeletionPolicy` - when the resource is deleted
 - `Database` - connection information of the database owner
 -- `Host` - the database server is listening on.

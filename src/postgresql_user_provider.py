@@ -167,6 +167,10 @@ class PostgreSQLUser(ResourceProvider):
 
     def close(self):
         if self.connection:
+            if self.status == 'SUCCESS':
+                self.connection.commit()
+            else:
+                self.connection.rollback()
             self.connection.close()
 
     def db_exists(self):
