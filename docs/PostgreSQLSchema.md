@@ -28,12 +28,12 @@ You can specify the following properties:
 - `Owner` - of the schema
 - `DeletionPolicy` - when the resource is deleted
 - `Database` - connection information of the database owner
--- `Host` - the database server is listening on.
--- `Port` - port the database server is listening on.
--- `Database` - name to connect to.
--- `User` - name of the database owner.
--- `Password` - to identify the user with. 
--- `PasswordParameterName` - name of the parameter in the store containing the password of the user
+  - `Host` - the database server is listening on.
+  - `Port` - port the database server is listening on.
+  - `Database` - name to connect to.
+  - `User` - name of the database owner.
+  - `Password` - to identify the user with. 
+  - `PasswordParameterName` - name of the parameter in the store containing the password of the user
 
 Either `Password` or `PasswordParameterName` is required.
 
