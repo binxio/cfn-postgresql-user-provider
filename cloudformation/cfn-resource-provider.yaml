@@ -65,7 +65,7 @@ Resources:
           - UsePublicBucket
           - !Sub 'binxio-public-${AWS::Region}'
           - !Ref 'LambdaS3Bucket'
-        S3Key: lambdas/cfn-postgresql-user-provider-0.5.8.zip
+        S3Key: lambdas/cfn-postgresql-user-provider-0.5.9.zip
       VpcConfig:
         SecurityGroupIds:
           - !Ref 'SecurityGroup'
