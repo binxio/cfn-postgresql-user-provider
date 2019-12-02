@@ -225,8 +225,6 @@ class PostgreSQLUser(ResourceProvider):
                 AsIs(self.user), AsIs(self.dbowner)])
             cursor.execute('CREATE DATABASE %s OWNER %s', [
                 AsIs(self.user), AsIs(self.user)])
-            cursor.execute('REVOKE %s FROM %s', [
-                AsIs(self.user), AsIs(self.dbowner)])
 
     def grant_ownership(self):
         log.info('grant ownership on %s to %s', self.user, self.user)
@@ -235,8 +233,6 @@ class PostgreSQLUser(ResourceProvider):
                 AsIs(self.user), AsIs(self.dbowner)])
             cursor.execute('ALTER DATABASE %s OWNER TO %s', [
                 AsIs(self.user), AsIs(self.user)])
-            cursor.execute('REVOKE %s FROM %s', [
-                AsIs(self.user), AsIs(self.dbowner)])
 
     def drop(self):
         if self.with_database and self.db_exists():
