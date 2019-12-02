@@ -65,7 +65,7 @@ aws cloudformation wait stack-create-complete  --stack-name cfn-postgresql-user-
 Note that this uses the default VPC, subnet and security group. As the Lambda functions needs to connect to the database. You will need to 
 install this custom resource provider for each vpc that you want to be able to create database users.
 
-This CloudFormation template will use our pre-packaged provider from `s3://binxio-public/lambdas/cfn-postgresql-user-provider-0.5.7.zip`.
+This CloudFormation template will use our pre-packaged provider from `s3://binxio-public/lambdas/cfn-postgresql-user-provider-0.5.8.zip`.
 
 If you have not done so, please install the secret provider too.
 
