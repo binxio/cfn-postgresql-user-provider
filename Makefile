@@ -77,53 +77,37 @@ autopep:
 	autopep8 --experimental --in-place --max-line-length 132 src/*.py tests/*.py
 
 deploy-provider:
-	@set -x ;if aws cloudformation get-template-summary --stack-name $(NAME) >/dev/null 2>&1 ; then \
-		export CFN_COMMAND=update; \
-	else \
-		export CFN_COMMAND=create; \
-	fi ;\
-	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
+	@export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
         export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?GatewayId == null]].Associations[].SubnetId' \
                                 describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
 	export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
 				describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
 	([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
-		echo "Either there is no default VPC in your account, less then two subnets or no default security group available in the default VPC" && exit 1 ; \
-	echo "$$CFN_COMMAND provider in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group $$SG_ID." ; \
-	aws cloudformation $$CFN_COMMAND-stack \
+		echo "Either there is no default VPC in your account, no private subnets or no default security group available in the default VPC" && exit 1 ; \
+	echo "deploy provider in default VPC $$VPC_ID, private subnets $$SUBNET_IDS using security group $$SG_ID." ; \
+	aws cloudformation deploy \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/cfn-resource-provider.yaml  \
-		--parameters ParameterKey=VPC,ParameterValue=$$VPC_ID \
-			     ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
-			     ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
-	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME) ;
+		--template ./cloudformation/cfn-resource-provider.yaml  \
+		--parameter-overrides VPC=$$VPC_ID Subnets=$$SUBNET_IDS SecurityGroup=$$SG_ID
 
 delete-provider:
 	aws cloudformation delete-stack --stack-name $(NAME)
 	aws cloudformation wait stack-delete-complete  --stack-name $(NAME)
 
 demo: 
-	@if aws cloudformation get-template-summary --stack-name $(NAME)-demo >/dev/null 2>&1 ; then \
-		export CFN_COMMAND=update; export CFN_TIMEOUT="" ;\
-	else \
-		export CFN_COMMAND=create; export CFN_TIMEOUT="--timeout-in-minutes 10" ;\
-	fi ;\
-	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
+	@export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
         export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?GatewayId == null]].Associations[].SubnetId' \
                                 describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
         export SG_ID=$$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
                                 describe-security-groups --group-names default  --filters Name=vpc-id,Values=$$VPC_ID); \
-	echo "$$CFN_COMMAND demo in default VPC $$VPC_ID, subnets $$SUBNET_IDS using security group $$SG_ID." ; \
+	echo "deploy demo in default VPC $$VPC_ID, private subnets $$SUBNET_IDS using security group $$SG_ID." ; \
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] || [[ -z $$SG_ID ]]) && \
-                echo "Either there is no default VPC in your account, no two subnets or no default security group available in the default VPC" && exit 1 ; \
-	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
-		--template-body file://cloudformation/demo-stack.yaml  \
-		$$CFN_TIMEOUT \
-		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
-				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" \
-				ParameterKey=SecurityGroup,ParameterValue=$$SG_ID ;\
-	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo ;
+                echo "Either there is no default VPC in your account, no private subnets or no default security group available in the default VPC" && exit 1 ; \
+	aws cloudformation deploy --stack-name $(NAME)-demo \
+		--template ./cloudformation/demo-stack.yaml  \
+		--parameter-overrides VPC=$$VPC_ID Subnets=$$SUBNET_IDS SecurityGroup=$$SG_ID
+
 
 delete-demo:
 	aws cloudformation delete-stack --stack-name $(NAME)-demo
