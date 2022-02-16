@@ -1,16 +1,15 @@
-# Custom::PostgreSQLSchema
-The `Custom::PostgreSQLSchema` resource creates a postgres schema and assigns an owner
+# Custom::PostgreSQLRoleGrant
+The `Custom::PostgresSQLRoleGrant` resource links a role to a role or user.
 
 
 ## Syntax
 To declare this entity in your AWS CloudFormation template, use the following syntax:
 
 ```yaml
-Type: Custom::PostgreSQLSchema
+Type: Custom::PostgreSQLRoleGrant
 Properties:
-  Schema: String
-  OWner: String
-  DeletionPolicy: Retain/Drop
+  Grantee: STRING
+  Role: STRING
   Database:
     Host: STRING
     Port: INTEGER
@@ -24,9 +23,8 @@ Properties:
 ## Properties
 You can specify the following properties:
 
-- `Schema` - to create
-- `Owner` - of the schema
-- `DeletionPolicy` - when the resource is deleted. Default: `Drop`
+- `Grantee` - user or role to grant to
+- `Role` - role to grant to user or role
 - `Database` - connection information of the database owner
   - `Host` - the database server is listening on.
   - `Port` - port the database server is listening on.

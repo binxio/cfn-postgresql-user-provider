@@ -189,7 +189,7 @@ class PostgreSQLUser(ResourceProvider):
 
     def drop_user(self):
         with self.connection.cursor() as cursor:
-            if self.deletion_policy == 'Drop':
+            if self.deletion_policy != 'Retain':
                 log.info('drop role  %s', self.user)
                 cursor.execute('DROP ROLE %s', [AsIs(self.user)])
             else:
@@ -197,7 +197,7 @@ class PostgreSQLUser(ResourceProvider):
                 cursor.execute("ALTER ROLE %s NOLOGIN", [AsIs(self.user)])
 
     def drop_database(self):
-        if self.deletion_policy == 'Drop':
+        if self.deletion_policy != 'Retain':
             log.info('drop database of %s', self.user)
             with self.connection.cursor() as cursor:
                 cursor.execute('GRANT %s TO %s', [
@@ -276,7 +276,7 @@ class PostgreSQLUser(ResourceProvider):
             self.close()
 
     def delete(self):
-        if self.physical_resource_id == 'could-not-create':
+        if self.physical_resource_id == 'could-not-create' or self.deletion_policy == "Retain":
             self.success('user was never created')
 
         try:

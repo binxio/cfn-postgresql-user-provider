@@ -110,7 +110,7 @@ class PostgreSQLRoleGrant(PostgreSQLUser):
             self.close()
 
     def delete(self):
-        if self.physical_resource_id == "could-not-create":
+        if self.physical_resource_id == "could-not-create" or self.deletion_policy == "retain":
             self.success("role was never granted")
             return
 

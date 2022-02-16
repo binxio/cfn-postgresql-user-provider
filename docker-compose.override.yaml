@@ -1,0 +1,6 @@
+version: '2.4'
+
+services:
+  aurora:
+    ports:
+      - "5432:5432"

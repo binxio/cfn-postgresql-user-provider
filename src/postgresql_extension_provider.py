@@ -11,18 +11,13 @@ log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 request_schema = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
-    "oneOf": [{"required": ["Database", "Schema", "Owner"]}],
+    "oneOf": [{"required": ["Database", "Extension"]}],
     "properties": {
         "Database": {"$ref": "#/definitions/connection"},
-        "Schema": {
+        "Extension": {
             "type": "string",
-            "pattern": "^[_A-Za-z][A-Za-z0-9_$]*$",
-            "description": "to create",
-        },
-        "Owner": {
-            "type": "string",
-            "pattern": "^[_A-Za-z][A-Za-z0-9_$]*$",
-            "description": "owner of the schema",
+            "pattern": "^[A-Za-z0-9_]*$",
+            "description": "postgres extension",
         },
         "DeletionPolicy": {
             "type": "string",
@@ -71,101 +66,89 @@ request_schema = {
 }
 
 
-class PostgreSQLSchema(PostgreSQLUser):
+class PostgreSQLExtension(PostgreSQLUser):
     def __init__(self):
-        super(PostgreSQLSchema, self).__init__()
+        super(PostgreSQLExtension, self).__init__()
         self.request_schema = request_schema
 
     def is_supported_resource_type(self):
-        return self.resource_type == "Custom::PostgreSQLSchema"
+        return self.resource_type == "Custom::PostgreSQLExtension"
 
     @property
-    def schema(self):
-        return self.get("Schema")
+    def database(self):
+        return self.dbname
 
     @property
-    def old_schema(self):
-        return self.get_old("Schema", self.schema)
+    def extension(self):
+        return self.get("Extension")
 
     @property
-    def owner(self):
-        return self.get("Owner")
+    def old_extension(self):
+        return self.get_old("Extension", self.extension)
 
     @property
-    def old_owner(self):
-        return self.get_old("Owner", self.owner)
+    def extension(self):
+        return self.get("Extension")
 
     @property
     def deletion_policy(self):
         return self.get("DeletionPolicy")
 
-    def create_schema(self):
-        log.info("create schema %s ", self.schema)
+    def create_extension(self):
+        log.info("creating extension %s for database %s ", self.extension, self.database)
         with self.connection.cursor() as cursor:
-            if self.owner != self.dbowner:
-                cursor.execute("GRANT %s to %s", [AsIs(self.owner), AsIs(self.dbowner)])
-            cursor.execute(
-                "CREATE SCHEMA %s AUTHORIZATION %s",
-                [AsIs(self.schema), AsIs(self.owner)],
-            )
+            cursor.execute("Create Extension if not exists %s", [AsIs(self.extension)])
 
-    def drop_schema(self):
-        log.info("drop schema %s ", self.schema)
+    def update_extension(self):
+        if self.extension != self.old_extension:
+            log.info("removing old extension %s and implementing %s on database %s", self.old_extension, self.extension, self.database)
+            log.info("drop extension %s ", self.extension)
+            with self.connection.cursor() as cursor:
+                cursor.execute("DROP EXTENSION IF EXISTS %s CASCADE", [AsIs(self.old_extension)])
+            log.info("creating extension %s on database %s ", self.extension, self.database)
+            with self.connection.cursor() as cursor:
+                cursor.execute("Create Extension if not exists %s", [AsIs(self.extension)])
+
+    def drop_extension(self):
+        log.info("drop extension %s ", self.extension)
         with self.connection.cursor() as cursor:
-            cursor.execute("DROP SCHEMA %s CASCADE", [AsIs(self.schema)])
-
-    def update_schema(self):
-        if self.owner != self.old_owner:
-            log.info("alter schema %s owner to %s", self.old_schema, self.owner)
-            with self.connection.cursor() as cursor:
-                cursor.execute(
-                    "ALTER SCHEMA %s OWNER TO %s",
-                    [AsIs(self.old_schema), AsIs(self.owner)],
-                )
-
-        if self.schema != self.old_schema:
-            log.info("alter schema %s rename to %s", self.old_schema, self.schema)
-            with self.connection.cursor() as cursor:
-                cursor.execute(
-                    "ALTER SCHEMA %s RENAME TO %s",
-                    [AsIs(self.old_schema), AsIs(self.schema)],
-                )
+            cursor.execute("DROP EXTENSION IF EXISTS %s CASCADE", [AsIs(self.extension)])
 
     def create(self):
         try:
             self.connect()
-            self.create_schema()
+            self.create_extension()
             self.physical_resource_id = self.logical_resource_id
         except Exception as e:
             self.physical_resource_id = "could-not-create"
-            self.fail("Failed to create schema, %s" % e)
+            self.fail("Failed to create extension, %s" % e)
         finally:
             self.close()
 
     def update(self):
         try:
             self.connect()
-            self.update_schema()
+            self.update_extension()
         except Exception as e:
-            self.fail("Failed to update the schema, %s" % e)
+            self.fail("Failed to update the extension, %s" % e)
         finally:
             self.close()
 
     def delete(self):
         if self.physical_resource_id == "could-not-create" or self.deletion_policy == "Retain":
-            self.success("schema was never created")
+            self.success("extension was never created")
             return
 
         try:
             self.connect()
-            self.drop_schema()
+            self.drop_extension()
         except Exception as e:
-            return self.fail("failed to drop schema %s" % e)
+            return self.fail("Failed to drop extension %s" % e)
         finally:
             self.close()
 
 
-provider = PostgreSQLSchema()
+provider = PostgreSQLExtension()
 
 
 def handler(request, context):

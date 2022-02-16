@@ -1,0 +1,16 @@
+version: "2.4"
+
+services:
+  aurora:
+    image: 280925583500.dkr.ecr.eu-central-1.amazonaws.com/postgres:13
+    ports:
+      - "5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: ["CMD", "psql", "-t", "-d", "postgres", "-U", "postgres", "-c", "select usename from pg_catalog.pg_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

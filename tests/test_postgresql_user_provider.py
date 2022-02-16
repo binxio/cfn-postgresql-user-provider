@@ -1,9 +1,12 @@
-import sys, json
-import uuid
-import psycopg2
-import boto3
 import logging
-from postgresql_user_provider import handler, request_schema
+import os
+import sys
+import uuid
+
+import boto3
+import psycopg2
+
+from postgresql_user_provider import handler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,8 +23,8 @@ class Event(dict):
             'LogicalResourceId': 'Whatever',
             'ResourceProperties': {
                 'User': user, 'Password': 'password', 'WithDatabase': with_database,
-                'Database': {'User': 'postgres', 'Password': 'password', 'Host': 'localhost',
-                              'Port': 5432, 'DBName': 'postgres'}
+                'Database': {'User': 'postgres', 'Password': 'password', 'Host': os.getenv("DOCKER0", "localhost"),
+                             'Port': os.getenv("DBPORT", 5432), 'DBName': 'postgres'}
             }})
         if physical_resource_id is not None:
             self['PhysicalResourceId'] = physical_resource_id
@@ -42,6 +45,7 @@ class Event(dict):
                 'user': p['User'], 'password': password}
         return psycopg2.connect(**args)
 
+
 def test_invalid_user_name():
     event = Event('Create', 'a-user', with_database=False)
     response = handler(event, {})
@@ -51,7 +55,7 @@ def test_invalid_user_name():
 def test_password_with_special_chars():
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=False)
-    event['ResourceProperties']['Password'] =  "abd'\\efg~"
+    event['ResourceProperties']['Password'] = "abd'\\efg~"
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
@@ -66,15 +70,18 @@ def test_password_with_special_chars():
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
+
 def test_create_user():
     # create a test user
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=False)
+    host = event['ResourceProperties']['Database']['Host']
+    port = event['ResourceProperties']['Database']['Port']
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
-    expect_id = 'postgresql:localhost:5432:postgres::%(name)s' % {'name': name}
+    expect_id = 'postgresql:%(host)s:%(port)s:postgres::%(name)s' % {'host': host, 'port': port, 'name': name}
     assert physical_resource_id == expect_id, 'expected %s, got %s' % (expect_id, physical_resource_id)
 
     with event.test_user_connection() as connection:
@@ -105,17 +112,24 @@ def test_create_user():
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', response['Reason']
 
+    event = Event('Delete', name, physical_resource_id, with_database=True)
+    event['ResourceProperties']['DeletionPolicy'] = ''
+    response = handler(event, {})
+    assert response['Status'] == 'SUCCESS', response['Reason']
+
 
 def test_update_password():
     # create a test database
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=True)
     event['DeletionPolicy'] = 'Drop'
+    host = event['ResourceProperties']['Database']['Host']
+    port = event['ResourceProperties']['Database']['Port']
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
-    expect_id = 'postgresql:localhost:5432:postgres:%(name)s:%(name)s' % {'name': name}
+    expect_id = 'postgresql:%(host)s:%(port)s:postgres:%(name)s:%(name)s' % {'host': host, 'port': port, 'name': name}
     assert physical_resource_id == expect_id, 'expected %s, got %s' % (expect_id, physical_resource_id)
 
     # update the password
@@ -144,11 +158,13 @@ def test_create_database():
     # create a test database
     name = 'u%s' % str(uuid.uuid4()).replace('-', '')
     event = Event('Create', name, with_database=True)
+    host = event['ResourceProperties']['Database']['Host']
+    port = event['ResourceProperties']['Database']['Port']
     response = handler(event, {})
     assert response['Status'] == 'SUCCESS', '%s' % response['Reason']
     assert 'PhysicalResourceId' in response
     physical_resource_id = response['PhysicalResourceId']
-    expect_id = 'postgresql:localhost:5432:postgres:%(name)s:%(name)s' % {'name': name}
+    expect_id = 'postgresql:%(host)s:%(port)s:postgres:%(name)s:%(name)s' % {'host': host, 'port': port, 'name': name}
     assert physical_resource_id == expect_id, 'expected %s, got %s' % (expect_id, physical_resource_id)
 
     # create the database again
@@ -201,8 +217,8 @@ def test_password_parameter_use():
     ssm = boto3.client('ssm')
     uuid_string = str(uuid.uuid4()).replace('-', '')
     name = 'user_%s' % uuid_string
-    user_password_name = 'p%s' % uuid_string
-    dbowner_password_name = 'o%s' % uuid_string
+    user_password_name = 'testparameterp%s' % uuid_string
+    dbowner_password_name = 'testparametero%s' % uuid_string
     try:
         event = Event('Create', name)
 

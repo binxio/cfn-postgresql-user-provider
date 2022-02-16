@@ -3,3 +3,4 @@ psycopg2-binary
 requests
 jsonschema
 cfn_resource_provider>=1.0.6
+AsIs

@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 
 import psycopg2
@@ -35,6 +36,20 @@ def test_create_schema(pg_users):
     response = handler(request, {})
     assert response["Status"] == "SUCCESS", response["Reason"]
 
+
+def test_drop_schema(pg_users):
+    user1, user2 = pg_users
+    schema1 = "schema_{}".format(str(uuid.uuid4()).replace("-", ""))
+    request = Request("Create", schema1, user1)
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
+
+    request = Request("Delete", schema1, user2, response["PhysicalResourceId"])
+    request["ResourceProperties"]["DeletionPolicy"] = "Drop"
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
+
+
 @pytest.fixture
 def pg_users():
     uid = str(uuid.uuid4()).replace("-", "")
@@ -52,12 +67,10 @@ def pg_users():
         yield (name, name2)
 
         with connection.cursor() as cursor:
-            #cursor.execute("DROP OWNED BY %s CASCADE", [AsIs(name)])
+            # cursor.execute("DROP OWNED BY %s CASCADE", [AsIs(name)])
             for n in [name, name2]:
                 cursor.execute("DROP ROLE %s", [AsIs(n)])
             connection.commit()
-
-
 
 
 class Request(dict):
@@ -76,8 +89,8 @@ class Request(dict):
                     "Database": {
                         "User": "postgres",
                         "Password": "password",
-                        "Host": "localhost",
-                        "Port": 5432,
+                        "Host": os.getenv("DOCKER0", "localhost"),
+                        "Port": os.getenv("DBPORT", 5432),
                         "DBName": "postgres",
                     },
                 },
