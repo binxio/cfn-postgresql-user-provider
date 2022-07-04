@@ -1,22 +1,21 @@
-FROM python:3.7
-RUN apt-get update && apt-get install -y zip
+FROM public.ecr.aws/lambda/python:3.9
+RUN yum install -y zip
 WORKDIR /lambda
 
 ADD requirements.txt /tmp
 RUN pip install --quiet -t /lambda -r /tmp/requirements.txt
 
-ADD src/ /lambda/
-RUN find /lambda -type d | xargs -n 1 -I {} chmod ugo+rx "{}" && \
-    find /lambda -type f | xargs -n 1 -I {} chmod ugo+r "{}"
+ADD --chmod=ugo+rx src/ /lambda/
 
 RUN python -m compileall -q /lambda
 
 ARG ZIPFILE=lambda.zip
 RUN zip --quiet -9r /${ZIPFILE}  .
 
-FROM lambci/lambda:python3.7
+FROM public.ecr.aws/lambda/python:3.9
 COPY --from=0 /lambda /var/task
 
 FROM scratch
 ARG ZIPFILE
 COPY --from=0 /${ZIPFILE} /
+

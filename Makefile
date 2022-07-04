@@ -48,14 +48,14 @@ do-build: target/$(NAME)-$(VERSION).zip
 
 target/$(NAME)-$(VERSION).zip: src/*.py requirements.txt
 	mkdir -p target
-	docker build --build-arg ZIPFILE=$(NAME)-$(VERSION).zip -t $(NAME)-lambda:$(VERSION) -f Dockerfile.lambda . && \
+	docker build --platform linux/x86_64 --build-arg ZIPFILE=$(NAME)-$(VERSION).zip -t $(NAME)-lambda:$(VERSION) -f Dockerfile.lambda . && \
 		ID=$$(docker create $(NAME)-lambda:$(VERSION) /bin/true) && \
 		docker export $$ID | (cd target && tar -xvf - $(NAME)-$(VERSION).zip) && \
 		docker rm -f $$ID && \
 		chmod ugo+r target/$(NAME)-$(VERSION).zip
 
 venv: requirements.txt
-	virtualenv -p python3 venv  && \
+	virtualenv -p python3.9 venv  && \
 	. ./venv/bin/activate && \
 	pip install --quiet --upgrade pip && \
 	pip install --quiet -r requirements.txt 
