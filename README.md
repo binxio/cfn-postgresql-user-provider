@@ -24,7 +24,7 @@ It is quite easy: you specify a CloudFormation resource of the [Custom::PostgreS
         DBName: root
         User: root
         PasswordParameterName: /postgres/root/PGPASSWORD                # put your root password is in the parameter store
-      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxioio-cfn-postgresql-user-provider-vpc-${AppVPC}'
+      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:binxio-cfn-postgresql-user-provider-vpc-${AppVPC}'
 
    KongPassword:
     Type: Custom::Secret
