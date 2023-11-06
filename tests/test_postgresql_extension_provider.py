@@ -3,67 +3,55 @@ import os
 import uuid
 
 import psycopg2
-import pytest
-from psycopg2.extensions import AsIs
 
 from postgresql import handler
 
 logging.basicConfig(level=logging.INFO)
 
 
-def test_grant_role(pg_users):
-    user1, user2 = pg_users
-    request = Request("Create", role=user1, grantee=user2)
-    response = handler(request, {})
-    assert response["Status"] == "SUCCESS", response["Reason"]
-    assert response["PhysicalResourceId"] == f'grant:postgres:{user1}:{user2}'
-
-    request = Request("Update", role=user1, grantee=user2, physical_resource_id=response["PhysicalResourceId"])
-    response = handler(request, {})
-    assert response["Status"] == "SUCCESS", response["Reason"]
-    assert response["PhysicalResourceId"] == f'grant:postgres:{user1}:{user2}'
-
-    request = Request("Delete", user1, user2, response["PhysicalResourceId"])
+def test_create_extension():
+    extension1 = "btree_gin"
+    request = Request("Create", extension1)
     response = handler(request, {})
     assert response["Status"] == "SUCCESS", response["Reason"]
 
-@pytest.fixture
-def pg_users():
-    uid = str(uuid.uuid4()).replace("-", "")
-    name = f'user_{uid}'
-    name2 = f'user2_{uid}'
-    r = Request('Create', name, name)
-    with r.db_connection() as connection:
-        with connection.cursor() as cursor:
-            for n in [name, name2]:
-                cursor.execute(
-                    "CREATE ROLE %s LOGIN ENCRYPTED PASSWORD %s", [AsIs(n), n]
-                )
-        connection.commit()
+    # rename to extension2
+    extension2 = "btree_gist"
+    request = Request("Update", extension2, response["PhysicalResourceId"])
+    request["OldResourceProperties"] = {"Extension": extension1}
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
 
-        yield (name, name2)
-
-        with connection.cursor() as cursor:
-            for n in [name, name2]:
-                cursor.execute("DROP ROLE %s", [AsIs(n)])
-            connection.commit()
+    request = Request("Delete", extension2, response["PhysicalResourceId"])
+    request["ResourceProperties"]["DeletionPolicy"] = "Drop"
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
 
 
+def test_drop_extension():
+    extension1 = "pgcrypto"
+    request = Request("Create", extension1)
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
+
+    request = Request("Delete", extension1, response["PhysicalResourceId"])
+    request["ResourceProperties"]["DeletionPolicy"] = "Drop"
+    response = handler(request, {})
+    assert response["Status"] == "SUCCESS", response["Reason"]
 
 
 class Request(dict):
-    def __init__(self, request_type, role, grantee, physical_resource_id=None):
+    def __init__(self, request_type, extension, physical_resource_id=None):
         self.update(
             {
                 "RequestType": request_type,
                 "ResponseURL": "https://httpbin.org/put",
                 "StackId": "arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
                 "RequestId": "request-%s" % str(uuid.uuid4()),
-                "ResourceType": "Custom::PostgreSQLRoleGrant",
+                "ResourceType": "Custom::PostgreSQLExtension",
                 "LogicalResourceId": "Whatever",
                 "ResourceProperties": {
-                    "Role": role,
-                    "Grantee": grantee,
+                    "Extension": extension,
                     "Database": {
                         "User": "postgres",
                         "Password": "password",

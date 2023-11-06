@@ -58,16 +58,18 @@ venv: requirements.txt
 	virtualenv -p python3.9 venv  && \
 	. ./venv/bin/activate && \
 	pip install --quiet --upgrade pip && \
-	pip install --quiet -r requirements.txt 
-	
+	pip install --quiet -r requirements.txt
+
 clean:
 	rm -rf venv target
-	rm -rf src/*.pyc tests/*.pyc
+	rm -rf src/*.pyc tests/*.pyc src/__pycache__ tests/__pycache__
 
-test: venv
+test-templates:
 	for i in $$PWD/cloudformation/*; do \
 		aws cloudformation validate-template --template-body file://$$i > /dev/null || exit 1; \
 	done
+
+test: venv
 	. ./venv/bin/activate && \
 	pip install --quiet -r requirements.txt -r test-requirements.txt && \
 	cd src && \

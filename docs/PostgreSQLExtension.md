@@ -1,16 +1,15 @@
-# Custom::PostgreSQLSchema
-The `Custom::PostgreSQLSchema` resource creates a postgres schema and assigns an owner
+# Custom::PostgreSQLExtension
+The `Custom::PostgresSQLExtension` resource creates a postgres Extension in the mentioned database.
 
 
 ## Syntax
 To declare this entity in your AWS CloudFormation template, use the following syntax:
 
 ```yaml
-Type: Custom::PostgreSQLSchema
+Type: Custom::PostgreSQLExtension
 Properties:
-  Schema: String
-  OWner: String
-  DeletionPolicy: Retain/Drop
+  Extension: STRING
+  DeletionPolicy: STRING
   Database:
     Host: STRING
     Port: INTEGER
@@ -24,8 +23,7 @@ Properties:
 ## Properties
 You can specify the following properties:
 
-- `Schema` - to create
-- `Owner` - of the schema
+- `Extension` - the name of a valid postgresql database extensions
 - `DeletionPolicy` - when the resource is deleted. Default: `Drop`
 - `Database` - connection information of the database owner
   - `Host` - the database server is listening on.

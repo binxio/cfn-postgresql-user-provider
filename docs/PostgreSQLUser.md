@@ -30,11 +30,11 @@ You can specify the following properties:
 - `Password` - of the user 
 - `PasswordParameterName` - name of the parameter in the store containing the password of the user
 - `WithDatabase` - if a database is to be created with the same name, defaults to true
-- `DeletionPolicy` - when the resource is deleted
+- `DeletionPolicy` - when the resource is deleted. Default: `Drop`
 - `Database` - connection information of the database owner
   - `Host` - the database server is listening on.
   - `Port` - port the database server is listening on.
-  - `Database` - name to connect to.
+  - `Database` - name of the database to connect to.
   - `User` - name of the database owner.
   - `Password` - to identify the user with. 
   - `PasswordParameterName` - name of the parameter in the store containing the password of the user
