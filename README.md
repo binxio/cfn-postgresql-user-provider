@@ -45,20 +45,23 @@ The RetainPolicy by default is `Retain`. This means that the login to the databa
 To install this Custom Resource, type:
 
 ```sh
+git clone https://github.com/binxio/cfn-postgresql-user-provider
+cd cfn-postgresql-user-provider
+
 export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
-export SUBNET_ID=$(aws ec2 --output text --query Subnets[0].SubnetId \
-			describe-subnets --filters Name=vpc-id,Values=$VPC_ID)
+export SUBNET_IDS=$(aws ec2 --output text --query "Subnets[*].SubnetId" \
+			describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" | tr '\t' ',')
 export SG_ID=$(aws ec2 --output text --query "SecurityGroups[*].GroupId" \
 			describe-security-groups --group-names default  --filters Name=vpc-id,Values=$VPC_ID)
 
 aws cloudformation create-stack \
-	--capabilities CAPABILITY_IAM \
-	--stack-name cfn-postgresql-user-provider \
-	--template-body file://cloudformation/cfn-custom-resource-provider.json  \
-	--parameters \
-	            ParameterKey=VPC,ParameterValue=$VPC_ID \
-	            ParameterKey=Subnet,ParameterValue=$SUBNET_ID \
-                ParameterKey=SecurityGroup,ParameterValue=$SG_ID
+        --capabilities CAPABILITY_IAM \
+        --stack-name cfn-postgresql-user-provider \
+        --template-body file://cloudformation/cfn-resource-provider.yaml  \
+        --parameters \
+			"ParameterKey=VPC,ParameterValue=${VPC_ID}" \
+			"ParameterKey=Subnets,ParameterValue=\"${SUBNET_IDS}\"" \
+			"ParameterKey=SecurityGroup,ParameterValue=${SG_ID}"
 
 aws cloudformation wait stack-create-complete  --stack-name cfn-postgresql-user-provider 
 ```
@@ -71,23 +74,30 @@ If you have not done so, please install the secret provider too.
 
 ```
 cd ..
-git clone https https://github.com/binxio/cfn-secret-provider.git 
+git clone https://github.com/binxio/cfn-secret-provider.git 
 cd cfn-secret-provider
 aws cloudformation create-stack \
 	--capabilities CAPABILITY_IAM \
 	--stack-name cfn-secret-provider \
-	--template-body file://cloudformation/cfn-custom-resource-provider.json 
+	--template-body file://cloudformation/cfn-resource-provider.yaml
 aws cloudformation wait stack-create-complete  --stack-name cfn-secret-provider 
 
 ```
 
 
 ## Demo
-To install the simple sample of the Custom Resource, type:
+
+To install the simple sample of the Custom Resource, type in the directory of
+this repository:
 
 ```sh
 aws cloudformation create-stack --stack-name cfn-database-user-provider-demo \
-	--template-body file://cloudformation/demo-stack.json
+	--template-body file://cloudformation/demo-stack.yaml \
+	--parameters \
+		"ParameterKey=VPC,ParameterValue=${VPC_ID}" \
+		"ParameterKey=Subnets,ParameterValue=\"${SUBNET_IDS}\"" \
+		"ParameterKey=SecurityGroup,ParameterValue=${SG_ID}"
+
 aws cloudformation wait stack-create-complete  --stack-name cfn-database-user-provider-demo
 ```
 It will create a postgres database too, so it is quite time consuming...
